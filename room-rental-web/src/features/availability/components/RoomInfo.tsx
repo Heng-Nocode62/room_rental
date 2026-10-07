@@ -1,0 +1,4 @@
+import type { RoomAvailabilityResponse } from "../types/availability";
+export default function RoomInfo({ room, hourlyPrice }: { room: RoomAvailabilityResponse; hourlyPrice?: {price:number; currencyCode:string} }) {
+ return <div className="border-r border-slate-200 bg-white px-4 py-3.5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold text-slate-900">{room.roomNumber}</p><p className="mt-0.5 truncate text-sm text-slate-500">{room.roomName}</p><p className="mt-2 text-xs text-slate-400">{room.roomTypeName} · {room.capacity} seats</p></div><div className="shrink-0 text-right"><p className="text-xs font-medium text-slate-400">Hourly</p><p className="text-sm font-semibold text-indigo-700">{hourlyPrice?`${hourlyPrice.price.toFixed(2)} ${hourlyPrice.currencyCode}`:"—"}</p></div></div></div>
+}

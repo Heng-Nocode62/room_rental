@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: room-rental-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/room_rental}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:123456}
+
+  jpa:
+    open-in-view: false
+
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: false
+    locations: classpath:db/migration
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:hengkiller657@gmail.com}
+    password: ${MAIL_PASSWORD:ewqg qyuu rdgs rpjo}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} %-5level [%X{requestId}] %logger{36} - %msg%n"
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:Ub5Pzw5tOidxpZukY8dCiVRjamCmWrYWQ8ti4iAHXErKJPXvJYmjXbLUsctqacJOo3pdz6KJk6bTajGwOY1dqv}
+      access-token-expiration: 900000
+      refresh-token-expiration: 604800000
+
+# application.yml
+google:
+  client-id: 876236890554-o32pu3u6drtj7fo90p8ogleh2tctmbch.apps.googleusercontent.com
+
+bakong:
+  base-url: https://api-bakong.nbc.gov.kh/
+  token: ${BAKONG_TOKEN}
+  account-id: heng_vath@bkrt
+  merchant-id: heng_vath@bkrt
+  merchant-name: Heng Vath
+  merchant-city: Phnom Penh
+  store-label: CinemaHub Tickets
+  terminal-label: POS-01
+  qr-expiry-minutes: 10
+  poll-inverval-seconds: 10

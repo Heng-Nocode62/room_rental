@@ -1,0 +1,139 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0");
+@import 'tailwindcss';
+@import url("https://fonts.googleapis.com/css2?family=Hanuman:wght@400;700&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Nokora:wght@400;700&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Siemreap&display=swap");
+
+@import url("https://fonts.googleapis.com/css2?family=Suwannaphum:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@100;200;300;400;500;600;700&display=swap");;
+
+select,
+input,
+textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* iOS date inputs ignore width unless appearance is reset */
+input[type="date"],
+input[type="time"] {
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:root {
+  font-family: var(--app-font-family, "Noto Sans Khmer", Inter),
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: #f8fafc;
+}
+
+@layer utilities {
+  .scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+ 
+
+}
+ @layer utilities {
+  .scrollbar-dashboard::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-dashboard::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-dashboard::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+
+  .scrollbar-dashboard::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  .scrollbar-dashboard {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+}
+
+/* Global scrollbar */
+html::-webkit-scrollbar {
+  width: 7px;
+}
+
+html::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+
+/* Runtime application configuration */
+
+:root {
+  --app-font-family: "Noto Sans Khmer","Kantumruy Pro", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+html[data-skin="bordered"] .app-skin-bordered {
+  background: #ffffff;
+}
+
+html[data-skin="bordered"] .app-skin-bordered main {
+  background: #ffffff;
+}
+
+html[data-layout="horizontal"] .app-layout-horizontal-sidebar {
+  display: none;
+}
