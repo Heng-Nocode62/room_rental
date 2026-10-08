@@ -1,7 +1,6 @@
 import {
   CalendarDays,
   CheckCircle2,
-  CreditCard,
   DoorOpen,
   Eye,
   LogIn,
@@ -29,7 +28,6 @@ interface Props {
     action: "confirm" | "cancel" | "checkIn" | "checkOut",
     item: ReservationResponse,
   ) => void;
-  onPayment?: (item: ReservationResponse) => void;
 }
 
 const ZONE = "Asia/Phnom_Penh";
@@ -118,7 +116,6 @@ export function ReservationTable({
   reservations,
   onView,
   onAction,
-  onPayment,
 }: Props) {
   if (reservations.length === 0) {
     return (
@@ -160,15 +157,6 @@ export function ReservationTable({
             let primary: RowItem | null = null;
 
             if (reservation.status === "PENDING") {
-              if (onPayment) {
-                primary = {
-                  label: "Pay",
-                  icon: <CreditCard size={14} />,
-                  tone: "success",
-                  onClick: () => onPayment(reservation),
-                };
-              }
-
               items.push({
                 label: "Confirm manually",
                 icon: <CheckCircle2 size={15} />,
@@ -183,14 +171,12 @@ export function ReservationTable({
                 onClick: () => onAction("cancel", reservation),
               });
 
-              if (!primary) {
-                primary = {
-                  label: "Confirm",
-                  icon: <CheckCircle2 size={14} />,
-                  tone: "success",
-                  onClick: () => onAction("confirm", reservation),
-                };
-              }
+              primary = {
+                label: "Confirm",
+                icon: <CheckCircle2 size={14} />,
+                tone: "success",
+                onClick: () => onAction("confirm", reservation),
+              };
             } else if (reservation.status === "CONFIRMED") {
               primary = {
                 label: "Check in",

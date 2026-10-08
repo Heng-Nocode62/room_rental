@@ -64,3 +64,8 @@ export function useLocationScope() {
   if (!context) throw new Error("useLocationScope must be used inside LocationScopeProvider");
   return context;
 }
+
+
+export function useOptionalLocationScope() {
+  return useContext(Context);
+}

@@ -34,6 +34,7 @@ export interface AuthUser {
   username?: string;
   firstName: string;
   lastName: string;
+  phone?: string;
   email?: string;
   roles: Role[];
   navigation: NavigationItemResponse[];

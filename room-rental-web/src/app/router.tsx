@@ -31,7 +31,6 @@ import StaffRoomTypesPage from "../features/staff/pages/StaffRoomTypesPage";
 import StaffAmenitiesPage from "../features/staff/pages/StaffAmenitiesPage";
 import StaffRoomPricesPage from "../features/staff/pages/StaffRoomPricesPage";
 import UserDashboardPage from "../features/user/pages/UserDashboardPage";
-import UserReservationsPage from "../features/user/pages/UserReservationsPage";
 import UserProfilePage from "../features/user/pages/UserProfilePage";
 import HourlyAvailabilityPage from "../features/availability/pages/AvailabilityPage";
 import DailyAvailabilityPage from "../features/availability/pages/DailyAvailabilityPage";
@@ -47,11 +46,16 @@ import OwnerStaffPage from "../features/owner/pages/OwnerStaffPage";
 import AdminPermissionsPage from "../features/admin/pages/AdminPermissionsPage";
 import RegisterPage from "../features/auth/pages/RegisterPage";
 import VerifyEmailPage from "../features/auth/pages/VerifyEmailPage";
+import UserReservationsPage from "../features/user/pages/UserReservationsPage";
+import UserRoomDetailsPage from "../features/user/pages/UserRoomDetailsPage";
+import UserBrowseRoomsPage from "../features/user/pages/UserBrowseRoomsPage";
+import UserPortalLayout from "../features/user/components/UserPortalLayout";
+import { UserThemeProvider } from "../features/user/UserThemeProvider";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
-  {path:"/verify-email",element:<VerifyEmailPage/>},
+  { path: "/verify-email", element: <VerifyEmailPage /> },
   {
     element: <ProtectedRoute />,
     children: [
@@ -77,7 +81,7 @@ export const router = createBrowserRouter([
               { path: "/audit-logs", element: <AdminAuditLogsPage /> },
               { path: "/rooms/new", element: <Navigate to="/rooms" replace /> },
               { path: "/rooms/:id", element: <Navigate to="/rooms" replace /> },
-              {path:"/permissions", element: <AdminPermissionsPage/>},
+              { path: "/permissions", element: <AdminPermissionsPage /> },
               {
                 path: "/room-blocks/new",
                 element: <Navigate to="/room-blocks" replace />,
@@ -172,11 +176,32 @@ export const router = createBrowserRouter([
         element: <RequireRole role="USER" />,
         children: [
           {
-            element:<UserLayout/>,
+            element: (
+              <UserThemeProvider>
+                <UserPortalLayout />
+              </UserThemeProvider>
+            ),
             children: [
-              { path: "/user/dashboard", element: <UserDashboardPage /> },
-              { path: "/user/reservations", element: <UserReservationsPage /> },
-              { path: "/user/profile", element: <UserProfilePage /> },
+              {
+                path: "/user/dashboard",
+                element: <UserDashboardPage />,
+              },
+              {
+                path: "/user/rooms",
+                element: <UserBrowseRoomsPage />,
+              },
+              {
+                path: "/user/rooms/:id",
+                element: <UserRoomDetailsPage />,
+              },
+              {
+                path: "/user/reservations",
+                element: <UserReservationsPage />,
+              },
+              {
+                path: "/user/profile",
+                element: <UserProfilePage />,
+              },
             ],
           },
         ],

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import LanguageSwitcher from "../../../features/settings/LanguageSwitcher";
+import ThemeToggle from "../../../features/settings/ThemeToggle";
 import  { T } from "../../../features/translation/TranslationText";
 import { X, Menu } from "../../ui/MaterialIcon";
 import { ChevronDown } from "../layoutIcons";
@@ -187,7 +188,8 @@ export default function UserHorizontalHeader({ locations, currentLocationId, onL
           {showLocations && (
             <UserLocationSelect locations={locations!} value={currentLocationId as number} onChange={onLocationChange!} />
           )}
-          <LanguageSwitcher />
+          <ThemeToggle />
+        <LanguageSwitcher />
           <UserMenu />
         </div>
       </div>

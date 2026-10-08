@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { CalendarCheck, RefreshCw } from "../../../components/ui/MaterialIcon.tsx";
 
@@ -31,24 +31,39 @@ import type {
 } from "../types/availability";
 import { getTimelineRange } from "../utils/timeline";
 import { useTranslation } from "react-i18next";
-import { BakongPaymentDialog } from "../../payment/components/BakongPaymentDialog";
-import { useReservationPaymentFlow } from "../../reservations/hooks/useReservationPaymentFlow";
 import type { ReservationCreateInitialState } from "../../reservations/components/ReservationCreateDialog";
 import { AvailabilityGrid } from "../components/AvailableGrid.tsx";
 import { AvailabilityMobileList } from "../components/AvailabilityMobileList.tsx";
+import { ReservationDetailsDialog, type ReservationAction } from "../../reservations/components/ReservationDetailsDialog";
+import { useReservationStatusMutation } from "../../reservations/hooks/useReservationStatusMutation";
+import type { ReservationResponse } from "../../reservations/types/reservation";
+import { useOptionalLocationScope } from "../../location-scope/LocationScopeProvider";
 
 export default function AvailabilityPage() {
   const { t } = useTranslation();
-  const paymentFlow = useReservationPaymentFlow();
+  const locationScope = useOptionalLocationScope();
+  const [createdReservation, setCreatedReservation] =
+    useState<ReservationResponse | null>(null);
+  const confirm = useReservationStatusMutation("confirm");
+  const cancel = useReservationStatusMutation("cancel");
+  const checkIn = useReservationStatusMutation("checkIn");
+  const checkOut = useReservationStatusMutation("checkOut");
 
   // FILTER STATE
   const [date, setDate] = useState(DateTime.now().toISODate() ?? "");
   const [roomTypeId, setRoomTypeId] = useState<number | "">("");
-  const [locationId, setLocationId] = useState<number | "">("");
+  const [locationId, setLocationId] = useState<number | "">(
+    () => locationScope?.currentLocationId ?? "",
+  );
 
   const [reservationOpen, setReservationOpen] = useState(false);
   const [reservationInitialState, setReservationInitialState] =
     useState<ReservationCreateInitialState | undefined>(undefined);
+
+  useEffect(() => {
+    if (!locationScope?.currentLocationId) return;
+    setLocationId(locationScope.currentLocationId);
+  }, [locationScope?.currentLocationId]);
 
   const {
     data: roomTypes,
@@ -119,7 +134,7 @@ export default function AvailabilityPage() {
     setReservationOpen(true);
   };
 
-  if (roomTypesLoading || locationsLoading) {
+  if (locationScope?.isLoading || roomTypesLoading || locationsLoading) {
     return <LoadingState />;
   }
 
@@ -179,8 +194,9 @@ export default function AvailabilityPage() {
               const value = event.target.value;
               setLocationId(value === "" ? "" : Number(value));
             }}
+            disabled={Boolean(locationScope)}
             options={[
-              { value: "", label: "All locations" },
+              ...(!locationScope ? [{ value: "", label: "All locations" }] : []),
               ...(locations ?? []).map((location) => ({
                 value: String(location.id),
                 label: `${location.name} (${location.code})`,
@@ -296,16 +312,23 @@ export default function AvailabilityPage() {
           open={true}
           onClose={() => setReservationOpen(false)}
           initialState={reservationInitialState}
-          onCreated={paymentFlow.handleCreated}
+          onCreated={(reservation) => setCreatedReservation(reservation)}
         />
       )}
 
-      <BakongPaymentDialog
-        open={Boolean(paymentFlow.payment)}
-        payment={paymentFlow.payment}
-        onClose={()=>{paymentFlow.closePayment();refetch();}}
-        onSucceeded={(payment) => void paymentFlow.handlePaymentSucceeded(payment)}
+      <ReservationDetailsDialog
+        reservation={createdReservation}
+        onClose={() => setCreatedReservation(null)}
+        onAction={(action: ReservationAction, reservation: ReservationResponse) => {
+          const mutation = { confirm, cancel, checkIn, checkOut }[action];
+          void mutation.mutateAsync(reservation.id).then(setCreatedReservation);
+        }}
+        loadingAction={
+          confirm.isPending ? "confirm" : cancel.isPending ? "cancel" : checkIn.isPending ? "checkIn" : checkOut.isPending ? "checkOut" : null
+        }
+        showWorkflowActions
       />
+
     </div>
   );
 }

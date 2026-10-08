@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import logo from '../../assets/logo.svg';
 import LanguageSwitcher from "../../features/settings/LanguageSwitcher";
+import ThemeToggle from "../../features/settings/ThemeToggle";
 import { useAppConfig } from "../../features/settings/context/AppConfigProvider";
 import HorizontalNav from "./HorizontalNav";
 import MobileMenu from "./MobileMenu";
@@ -59,7 +60,8 @@ export default function HorizontalHeader() {
         <HorizontalNav />
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <LanguageSwitcher />
+          <ThemeToggle />
+        <LanguageSwitcher />
           <UserMenu />
         </div>
       </div>

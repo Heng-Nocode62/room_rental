@@ -6,7 +6,22 @@ export function createIcon(name: string) {
     return <span aria-hidden="true" className={`material-symbols-rounded inline-flex select-none items-center justify-center leading-none ${className}`} style={{ fontSize: size, ...style }} {...props}>{name}</span>;
   };
 }
-
+export function Edit({
+  size = 20,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`material-symbols-outlined ${className}`}
+      style={{ fontSize: size }}
+    >
+      edit
+    </span>
+  );
+}
 export const Ban = createIcon("block");
 export const Calendar = createIcon("calendar_month");
 export const CalendarCheck = createIcon("event_available");

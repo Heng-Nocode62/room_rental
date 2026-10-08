@@ -24,9 +24,11 @@ import { MonthlyAvailabilityCalendar } from "../components/MonthlyAvailabilityCa
 
 import { ReservationCreateDialog } from "../../reservations/components/ReservationCreateDialog";
 import { useRoomTypes } from "../../room-types/hooks/useRoomTypes";
-import { BakongPaymentDialog } from "../../payment/components/BakongPaymentDialog";
-import { useReservationPaymentFlow } from "../../reservations/hooks/useReservationPaymentFlow";
 import type { ReservationCreateInitialState } from "../../reservations/components/ReservationCreateDialog";
+import { ReservationDetailsDialog, type ReservationAction } from "../../reservations/components/ReservationDetailsDialog";
+import { useReservationStatusMutation } from "../../reservations/hooks/useReservationStatusMutation";
+import type { ReservationResponse } from "../../reservations/types/reservation";
+import { useOptionalLocationScope } from "../../location-scope/LocationScopeProvider";
 
 export default function DailyAvailabilityPage() {
 
@@ -35,25 +37,25 @@ export default function DailyAvailabilityPage() {
     DateTime.now().startOf("month"),
   );
 
-
   const [roomTypeId, setRoomTypeId] = useState<number | "">("");
-
-
-
   const [selectedRoomId, setSelectedRoomId] = useState<number | "">("");
-
 
   const [reservationOpen, setReservationOpen] = useState(false);
   const [reservationInitialState, setReservationInitialState] = useState<ReservationCreateInitialState | undefined>(undefined);
+  const [createdReservation, setCreatedReservation] = useState<ReservationResponse | null>(null);
+  const locationScope = useOptionalLocationScope();
+  const confirm = useReservationStatusMutation("confirm");
+  const cancel = useReservationStatusMutation("cancel");
+  const checkIn = useReservationStatusMutation("checkIn");
+  const checkOut = useReservationStatusMutation("checkOut");
 
   const roomTypesQuery = useRoomTypes();
-
-  const paymentFlow = useReservationPaymentFlow();
 
   const roomTypes =
     roomTypesQuery.data ?? [];
 
   const roomsQuery = useRooms({
+    locationId: locationScope?.currentLocationId ?? undefined,
     roomTypeId:
       roomTypeId === ""
         ? undefined
@@ -187,6 +189,7 @@ export default function DailyAvailabilityPage() {
 
 
   if (
+    locationScope?.isLoading ||
     roomsQuery.isLoading ||
     roomTypesQuery.isLoading
   ) {
@@ -524,29 +527,25 @@ export default function DailyAvailabilityPage() {
           open={true}
           onClose={() => setReservationOpen(false)}
           initialState={reservationInitialState}
-          onCreated={paymentFlow.handleCreated}
+          onCreated={(reservation) => setCreatedReservation(reservation)}
         />
       )}
 
-      {paymentFlow.error && (
-        <div className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 shadow-lg">
-          <p className="text-sm text-rose-700">{paymentFlow.error}</p>
-          <button
-            type="button"
-            className="mt-2 text-xs font-medium text-rose-800 underline"
-            onClick={paymentFlow.clearError}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      <BakongPaymentDialog
-        open={Boolean(paymentFlow.payment)}
-        payment={paymentFlow.payment}
-        onClose={paymentFlow.closePayment}
-        onSucceeded={(payment) => void paymentFlow.handlePaymentSucceeded(payment)}
+      <ReservationDetailsDialog
+        reservation={createdReservation}
+        onClose={() => setCreatedReservation(null)}
+        onAction={(action: ReservationAction, reservation: ReservationResponse) => {
+          const mutation = { confirm, cancel, checkIn, checkOut }[action];
+          void mutation.mutateAsync(reservation.id).then(setCreatedReservation);
+        }}
+        loadingAction={
+          confirm.isPending ? "confirm" : cancel.isPending ? "cancel" : checkIn.isPending ? "checkIn" : checkOut.isPending ? "checkOut" : null
+        }
+        showWorkflowActions
       />
+
+
+
 
     </div>
   );

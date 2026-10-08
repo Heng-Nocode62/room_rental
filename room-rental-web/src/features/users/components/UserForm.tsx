@@ -59,6 +59,7 @@ export function UserForm({
         <>
           <Input
             label="Username"
+            placeholder=" "
             requiredMark
             autoComplete="username"
             error={errors.username?.message}
@@ -75,6 +76,7 @@ export function UserForm({
           <Input
             label="Password"
             requiredMark
+            placeholder=" "
             type="password"
             autoComplete="new-password"
             error={errors.password?.message}
@@ -93,6 +95,7 @@ export function UserForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <Input
           label="First name"
+          placeholder=" "
           requiredMark
           error={errors.firstName?.message}
           {...register("firstName", {
@@ -102,6 +105,7 @@ export function UserForm({
 
         <Input
           label="Last name"
+          placeholder=" "
           requiredMark
           error={errors.lastName?.message}
           {...register("lastName", {
@@ -110,9 +114,9 @@ export function UserForm({
         />
       </div>
 
-      <Input label="Email" type="email" {...register("email")} />
+      <Input placeholder=" " label="Email" type="email" {...register("email")} />
 
-      <Input label="Phone" {...register("phone")} />
+      <Input placeholder=" " label="Phone" {...register("phone")} />
 
       <div className="flex justify-end">
         <Button type="submit" loading={loading}>

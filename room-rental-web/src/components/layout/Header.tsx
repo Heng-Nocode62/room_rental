@@ -4,6 +4,7 @@ import { Button } from "../ui/Button";
 import { usePermissions } from "../../features/auth/hooks/usePermissions";
 import { useLogout } from "../../features/auth/hooks/useLogout";
 import LanguageSwitcher from "../../features/settings/LanguageSwitcher";
+import ThemeToggle from "../../features/settings/ThemeToggle";
 import { useAppConfig } from "../../features/settings/context/AppConfigProvider";
 
 /** Top bar for the vertical (sidebar) layout. The horizontal layout uses HorizontalHeader. */
@@ -34,6 +35,7 @@ export default function Header() {
           <p className="text-xs text-slate-500">{user?.username}</p>
         </div>
 
+        <ThemeToggle />
         <LanguageSwitcher />
 
         <Button

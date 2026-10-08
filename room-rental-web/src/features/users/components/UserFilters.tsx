@@ -52,6 +52,10 @@ export function UserFilters({
             value: "ACTIVE",
             label: "Active",
           },
+          {
+            value: "PENDING",
+            label: "Pending",
+          },
 
           {
             value: "LOCKED",

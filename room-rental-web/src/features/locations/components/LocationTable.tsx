@@ -1,4 +1,9 @@
-import { CalendarClock, Edit3, Eye, Power } from "../../../components/ui/MaterialIcon.tsx";
+import {
+  CalendarClock,
+  Edit3,
+  Eye,
+  Power,
+} from "../../../components/ui/MaterialIcon.tsx";
 import {
   ActionMenu,
   Table,
@@ -10,6 +15,7 @@ import {
 } from "../../../components/ui";
 import type { LocationResponse } from "../types/location";
 import { LocationStatusBadge } from "./LocationStatusBadge";
+import { useUser } from "../../users/hooks/useUser.ts";
 interface Props {
   locations: LocationResponse[];
   onView: (item: LocationResponse) => void;
@@ -24,6 +30,23 @@ export function LocationTable({
   onHours,
   onToggle,
 }: Props) {
+  const getOwnerEmail = (id: number): String => {
+    const { data: user, isLoading, isError } = useUser(id);
+
+    if (isLoading) {
+      return "Loading user profile...";
+    }
+
+    if (isError) {
+      return "Error loading user";
+    }
+
+    // Handle case where user isn't found or returns null
+    if (!user) {
+      return "User not found";
+    }
+    return user.email!;
+  };
   return (
     <Table>
       <TableHead>
@@ -31,8 +54,10 @@ export function LocationTable({
           <TableHeaderCell>Location</TableHeaderCell>
           <TableHeaderCell>Total Rooms</TableHeaderCell>
           <TableHeaderCell>Code</TableHeaderCell>
+          <TableHeaderCell>Owner</TableHeaderCell>
           <TableHeaderCell>Timezone</TableHeaderCell>
           <TableHeaderCell>Contact</TableHeaderCell>
+          <TableHeaderCell>Floor</TableHeaderCell>
           <TableHeaderCell>Status</TableHeaderCell>
           <TableHeaderCell className="w-20 text-right">Actions</TableHeaderCell>
         </TableRow>
@@ -57,11 +82,21 @@ export function LocationTable({
               </span>
             </TableCell>
             <TableCell>
+              <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700">
+                {getOwnerEmail(item.id)}
+              </span>
+            </TableCell>
+            <TableCell>
               <span className="font-mono text-xs text-slate-600">
                 {item.timeZone}
               </span>
             </TableCell>
             <TableCell>{item.phone || "—"}</TableCell>
+            <TableCell>
+              <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700">
+                {item.floor}
+              </span>
+            </TableCell>
             <TableCell>
               <LocationStatusBadge status={item.status} />
             </TableCell>

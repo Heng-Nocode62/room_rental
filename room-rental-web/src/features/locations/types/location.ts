@@ -1,4 +1,3 @@
-
 export type LocationStatus =
   | "ACTIVE"
   | "INACTIVE"
@@ -15,6 +14,9 @@ export interface LocationResponse {
 
   timeZone: string;
 
+  floor: number;
+  ownerId: number;
+
   status: LocationStatus;
   totalRooms: number;
 }
@@ -27,6 +29,9 @@ export interface CreateLocationRequest {
   phone?: string;
 
   timeZone: string;
+
+  floor: number;
+  ownerId: number;
 }
 
 export interface UpdateLocationRequest {
@@ -36,4 +41,6 @@ export interface UpdateLocationRequest {
   phone?: string;
 
   timeZone: string;
+
+  floor: number;
 }

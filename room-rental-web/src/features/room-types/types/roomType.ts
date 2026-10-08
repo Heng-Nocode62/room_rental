@@ -1,4 +1,3 @@
-
 export type RoomTypeStatus =
   | "ACTIVE"
   | "INACTIVE"
@@ -13,6 +12,8 @@ export interface RoomTypeResponse {
   description?: string;
 
   capacity?: number;
+
+  imageUrl?: string;
 
   status: RoomTypeStatus;
 }

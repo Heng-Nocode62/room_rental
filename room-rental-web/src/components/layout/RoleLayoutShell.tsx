@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { MapPin } from "../../components/ui/MaterialIcon.tsx";
 import { ChevronDown, LogOut, MoreHorizontal } from "./layoutIcons.tsx";
+import ThemeToggle from "../../features/settings/ThemeToggle";
 
 export interface RoleNavItem {
   label: string;
@@ -246,8 +247,8 @@ export default function RoleLayoutShell({
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              {showLocations && (
-                <LocationSelect
+              <ThemeToggle />
+              {showLocations && (                <LocationSelect
                   locations={locations!}
                   value={currentLocationId as number}
                   onChange={onLocationChange!}

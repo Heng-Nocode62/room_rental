@@ -1,144 +1,291 @@
-import { useState } from "react";
-import { CalendarCheck } from "../../../components/ui/MaterialIcon.tsx";
-import {
-  Button,
-  EmptyState,
-  LoadingState,
-  Modal,
-  PageHeader,
-} from "../../../components/ui";
-import { useCurrentUser } from "../../auth/hooks/useCurrentUser";
-import { useReservationPaymentFlow } from "../../reservations/hooks/useReservationPaymentFlow";
+import { useMemo, useState } from "react";
+
 import { useReservationStatusMutation } from "../../reservations/hooks/useReservationStatusMutation";
 import type { ReservationResponse } from "../../reservations/types/reservation";
-import { ReservationFilters } from "../../reservations/components/ReservationFilters";
-import { UserReservationTable } from "../components/reservations/UserReservationTable";
-import { BakongPaymentDialog } from "../../payment/components/BakongPaymentDialog";
-import { useMyReservation } from "../hooks/useMyReservation.ts";
-import { ReservationCreateDialog } from "../../reservations/components/ReservationCreateDialog.tsx";
+
+import {
+  Button,
+  Empty,
+  Input,
+  PageLoading,
+  SectionTitle,
+  SelectInput,
+  Modal,
+  Card,
+} from "../components/UserUI";
+;
+import { ReservationDetailsDialog } from "../components/ReservationDetailsDialog";
+import { useMyReservations } from "../hooks/useMyReservation";
+import { ReservationCard } from "./ReservationCard";
 
 export default function UserReservationsPage() {
-  const { data: user, isLoading: userLoading } = useCurrentUser();
-  const [createOpen, setCreateOpen] = useState(false);
+  const reservations =
+    useMyReservations();
+
+  const cancel =
+    useReservationStatusMutation(
+      "cancel",
+    );
+
   const [keyword, setKeyword] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] =
+    useState("UPCOMING");
   const [date, setDate] = useState("");
-  const [view, setView] = useState<ReservationResponse | null>(null);
-  const payment = useReservationPaymentFlow();
-  const cancel = useReservationStatusMutation("cancel");
-  // const myReservations = useMemo(
-  //   () =>
-  //     (list.data?.content ?? []).filter(
-  //       (item) => item.reservedById === user?.id,
-  //     ),
-  //   [list.data, user?.id],
-  // );
-  const {data,loading:reservationLoading,error:reservationError,loadMyReservation}= useMyReservation();
-  const myReservations  = data;
-  if (userLoading || reservationLoading) return <LoadingState />;
+
+  const [selected, setSelected] =
+    useState<ReservationResponse | null>(
+      null,
+    );
+
+  const [cancelTarget, setCancelTarget] =
+    useState<ReservationResponse | null>(
+      null,
+    );
+
+  const filtered =
+    useMemo(() => {
+      const now = Date.now();
+
+      return (reservations.data ?? []).filter(
+        (reservation) => {
+          const matchesKeyword =
+            !keyword.trim() ||
+            reservation.referenceNo
+              .toLowerCase()
+              .includes(
+                keyword
+                  .trim()
+                  .toLowerCase(),
+              ) ||
+            reservation.roomName
+              .toLowerCase()
+              .includes(
+                keyword
+                  .trim()
+                  .toLowerCase(),
+              ) ||
+            reservation.purpose
+              .toLowerCase()
+              .includes(
+                keyword
+                  .trim()
+                  .toLowerCase(),
+              );
+
+          const timestamp =
+            new Date(
+              reservation.startAt,
+            ).getTime();
+
+          const matchesStatus =
+            status === "ALL"
+              ? true
+              : status === "UPCOMING"
+                ? reservation.status !==
+                    "CANCELLED" &&
+                  timestamp >= now
+                : status === "PAST"
+                  ? timestamp < now &&
+                    reservation.status !==
+                      "CANCELLED"
+                  : reservation.status ===
+                    "CANCELLED";
+
+          const matchesDate =
+            !date ||
+            reservation.startAt.startsWith(
+              date,
+            );
+
+          return (
+            matchesKeyword &&
+            matchesStatus &&
+            matchesDate
+          );
+        },
+      );
+    }, [
+      reservations.data,
+      keyword,
+      status,
+      date,
+    ]);
+
+  if (reservations.isLoading) {
+    return <PageLoading />;
+  }
+
+  const confirmCancel =
+    async () => {
+      if (!cancelTarget) return;
+
+      await cancel.mutateAsync(
+        cancelTarget.id,
+      );
+
+      await reservations.refetch();
+
+      setCancelTarget(null);
+
+      setSelected(null);
+    };
+
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6">
-      <PageHeader
-        icon={<CalendarCheck size={19} />}
+    <div className="mx-auto max-w-[1200px] space-y-8 px-4 py-8 lg:px-8">
+      <SectionTitle
+        eyebrow="Your activity"
         title="My Reservations"
-        description="View and manage your reservations."
-        actions={
-          <Button
-            leftIcon={<CalendarCheck size={17} />}
-            onClick={() => setCreateOpen(true)}
+        description="Keep track of upcoming bookings and view your reservation history."
+      />
+
+      {/* FILTERS */}
+
+      <Card className="p-4">
+        <div className="grid gap-3 md:grid-cols-[1fr_180px_180px]">
+          <Input
+            placeholder="Search reservations..."
+            value={keyword}
+            onChange={(event) =>
+              setKeyword(
+                event.target.value,
+              )
+            }
+          />
+
+          <SelectInput
+            value={status}
+            onChange={(event) =>
+              setStatus(
+                event.target.value,
+              )
+            }
           >
-            New reservation
-          </Button>
-        }
-      />
-      <ReservationFilters
-        keyword={keyword}
-        status={status}
-        date={date}
-        onKeywordChange={setKeyword}
-        onStatusChange={setStatus}
-        onDateChange={setDate}
-      />
-      {reservationError ? (
-        <EmptyState
+            <option value="UPCOMING">
+              Upcoming
+            </option>
+
+            <option value="PAST">
+              Past
+            </option>
+
+            <option value="CANCELLED">
+              Cancelled
+            </option>
+
+            <option value="ALL">
+              All reservations
+            </option>
+          </SelectInput>
+
+          <Input
+            type="date"
+            value={date}
+            onChange={(event) =>
+              setDate(
+                event.target.value,
+              )
+            }
+          />
+        </div>
+      </Card>
+
+      {/* LIST */}
+
+      {reservations.isError ? (
+        <Empty
           title="Unable to load reservations"
-          description="Try again."
-          action={
-            <Button variant="secondary" onClick={() => void loadMyReservation}>
-              Try again
-            </Button>
-          }
+          description="Please refresh and try again."
         />
-      ) : myReservations.length === 0 ? (
-        <EmptyState
+      ) : filtered.length === 0 ? (
+        <Empty
           title="No reservations found"
-          description="You do not have reservations matching the current filters."
-          action={
-            <Button onClick={() => setCreateOpen(true)}>New reservation</Button>
-          }
+          description="There are no reservations matching the current filters."
         />
       ) : (
-        <UserReservationTable
-          reservations={myReservations}
-          onView={setView}
-          onPayment={(item) => payment.start(item.id)}
-          onCancel={(item) => {
-            if (window.confirm(`Cancel ${item.referenceNo}?`))
-              void cancel.mutateAsync(item.id);
-          }}
-        />
+        <div className="space-y-4">
+          {filtered.map((reservation) => (
+            <ReservationCard
+              key={reservation.id}
+              reservation={reservation}
+              onView={() =>
+                setSelected(
+                  reservation,
+                )
+              }
+              onCancel={() =>
+                setCancelTarget(
+                  reservation,
+                )
+              }
+            />
+          ))}
+        </div>
       )}
-      {/* <UserReservationCreateDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-      /> */}
-      <ReservationCreateDialog
-      open={createOpen}
-        onClose={() => setCreateOpen(false)}
+
+      {/* DETAIL */}
+
+      <ReservationDetailsDialog
+        reservation={selected}
+        open={!!selected}
+        onClose={() =>
+          setSelected(null)
+        }
+        onCancel={() =>
+          setCancelTarget(
+            selected,
+          )
+        }
+        loading={cancel.isPending}
       />
-      <BakongPaymentDialog
-        open={payment.open}
-        onClose={payment.closePayment}
-        reservationId={""}
-        onCompleted={() => void list.refetch()}
-      />
+
+      {/* CANCEL CONFIRMATION */}
+
       <Modal
-        open={Boolean(view)}
-        onClose={() => setView(null)}
-        title={view ? view.referenceNo : "Reservation"}
+        open={!!cancelTarget}
+        onClose={() =>
+          setCancelTarget(null)
+        }
+        title="Cancel reservation"
+        description="This action will cancel the selected reservation."
       >
-        {view && (
+        {cancelTarget && (
           <div className="space-y-5">
-            <p className="text-sm text-slate-600">
-              {view.roomNumber} · {view.roomName}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Info label="Start" value={view.startAt} />
-              <Info label="End" value={view.endAt} />
-              <Info
-                label="Amount"
-                value={`${view.totalAmount.toFixed(2)} ${view.currencyCode}`}
-              />
-              <Info label="Status" value={view.status} />
+            <div className="rounded-2xl bg-rose-50 p-4 dark:bg-rose-500/10">
+              <p className="font-semibold text-rose-700 dark:text-rose-400">
+                Cancel{" "}
+                {cancelTarget.referenceNo}?
+              </p>
+
+              <p className="mt-1 text-sm text-rose-600 dark:text-rose-400">
+                {cancelTarget.roomName}
+              </p>
             </div>
-            <div className="flex justify-end">
-              <Button variant="secondary" onClick={() => setView(null)}>
-                Close
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  setCancelTarget(null)
+                }
+              >
+                Keep reservation
+              </Button>
+
+              <Button
+                variant="danger"
+                loading={
+                  cancel.isPending
+                }
+                onClick={() =>
+                  void confirmCancel()
+                }
+              >
+                Cancel reservation
               </Button>
             </div>
           </div>
         )}
       </Modal>
-    </div>
-  );
-}
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-medium text-slate-800">{value}</p>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { router } from "./app/router";
 
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { AppConfigProvider } from "./features/settings/context/AppConfigProvider";
+import { ThemeProvider } from "./features/settings/context/ThemeProvider";
 
 import {
   QueryClientProvider,
@@ -34,11 +35,13 @@ async function bootstrap() {
       >
         <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
           <AuthProvider>
+          <ThemeProvider>
           <AppConfigProvider>
             <Providers>
               <RouterProvider router={router} />
             </Providers>
           </AppConfigProvider>
+          </ThemeProvider>
         </AuthProvider>
 
         </GoogleOAuthProvider>
