@@ -1,5 +1,4 @@
-import { core } from "zod";
-import { api, coreApi } from "../../../lib/axios";
+import { coreApi } from "../../../lib/axios";
 
 export interface PriceCalculationRequest {
   roomId: number;

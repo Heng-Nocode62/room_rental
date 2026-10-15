@@ -52,7 +52,7 @@ type RowItem = {
   label: string;
   icon: ReactNode;
   onClick: () => void;
-  tone?: "success" | "danger" | "neutral";
+  tone?: "success" | "danger" | "default";
   dividerBefore?: boolean;
 };
 

@@ -83,7 +83,7 @@ export function LocationTable({
             </TableCell>
             <TableCell>
               <span className="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs text-slate-700">
-                {getOwnerEmail(item.id)}
+                {getOwnerEmail(item.ownerId)}
               </span>
             </TableCell>
             <TableCell>

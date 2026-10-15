@@ -14,14 +14,8 @@ import type { RoomTypeResponse } from "../../room-types/types/roomType";
 import type { LocationResponse } from "../../locations/types/location";
 import type { ReservationAmenityRequest } from "../../reservations/types/reservation";
 
-import {
-  Button,
-  Card,
-  Icon,
-  Input,
-  Modal,
-  SelectInput,
-} from "./UserUI";
+import { Button, Card, Icon, Input, Modal, SelectInput } from "./UserUI";
+import { useMonthAvailability } from "../../availability/hooks/useMonthAvailability";
 
 interface BookingDialogProps {
   open: boolean;
@@ -53,30 +47,21 @@ export function BookingDialog({
 
   const { data: user } = useCurrentUser();
 
-  const timezone =
-    location?.timeZone || "Asia/Phnom_Penh";
+  const timezone = location?.timeZone || "Asia/Phnom_Penh";
 
-  const today =
-    DateTime.now().setZone(timezone).toISODate()!;
+  const today = DateTime.now().setZone(timezone).toISODate()!;
 
-  const [pricingUnitCode, setPricingUnitCode] =
-    useState<"HOURLY" | "DAILY">("HOURLY");
-
-  const [date, setDate] = useState(
-    initialDate || today,
+  const [pricingUnitCode, setPricingUnitCode] = useState<"HOURLY" | "DAILY">(
+    "HOURLY",
   );
 
-  const [endDate, setEndDate] = useState(
-    initialDate || today,
-  );
+  const [date, setDate] = useState(initialDate || today);
 
-  const [startTime, setStartTime] = useState(
-    initialStartTime || "",
-  );
+  const [endDate, setEndDate] = useState(initialDate || today);
 
-  const [endTime, setEndTime] = useState(
-    initialEndTime || "",
-  );
+  const [startTime, setStartTime] = useState(initialStartTime || "");
+
+  const [endTime, setEndTime] = useState(initialEndTime || "");
 
   const [purpose, setPurpose] = useState("");
   const [contactName, setContactName] = useState("");
@@ -84,23 +69,26 @@ export function BookingDialog({
   const [companyName, setCompanyName] = useState("");
   const [notes, setNotes] = useState("");
 
-  const [amenities, setAmenities] = useState<
-    ReservationAmenityRequest[]
-  >([]);
+  const [amenities, setAmenities] = useState<ReservationAmenityRequest[]>([]);
 
   const hours = useOperatingHours(room.locationId);
 
-  const availability = useDayAvailability(
+  const availability = useDayAvailability(room.id, date);
+  const startMonth = DateTime.fromISO(date || today);
+  const endMonth = DateTime.fromISO(endDate || today);
+  const startMonthAvailability = useMonthAvailability(
     room.id,
-    date,
+    startMonth.year,
+    startMonth.month,
+  );
+  const endMonthAvailability = useMonthAvailability(
+    room.id,
+    endMonth.year,
+    endMonth.month,
   );
 
   const prices = useQuery({
-    queryKey: [
-      "user-room-price",
-      room.id,
-      date,
-    ],
+    queryKey: ["user-room-price", room.id, date],
 
     queryFn: () =>
       roomPriceApi.search({
@@ -116,8 +104,49 @@ export function BookingDialog({
     staleTime: 60_000,
   });
 
-  const priceCalculation =
-    useCalculatePrice();
+  // Daily booking is only offered when the whole start day is free:
+  // every slot AVAILABLE and none already in the past.
+  const dayIsFullyFree = useMemo(() => {
+    const slots = availability.data?.slots ?? [];
+    if (slots.length === 0) return false;
+    const now = DateTime.now();
+    return slots.every(
+      (slot) =>
+        slot.status === "AVAILABLE" &&
+        DateTime.fromISO(`${date}T${slot.start.slice(0, 5)}`, {
+          zone: timezone,
+        }) > now,
+    );
+  }, [availability.data, date, timezone]);
+  const rangeFullyFree = useMemo(() => {
+    if (pricingUnitCode !== "DAILY") return true;
+
+    const statusByDate = new Map(
+      [
+        ...(startMonthAvailability.data?.days ?? []),
+        ...(endMonthAvailability.data?.days ?? []),
+      ].map((day) => [day.date, day.status]),
+    );
+
+    let day = DateTime.fromISO(date);
+    const last = DateTime.fromISO(endDate);
+    if (!day.isValid || !last.isValid) return false;
+
+    for (; day <= last; day = day.plus({ days: 1 })) {
+      const status = statusByDate.get(day.toISODate()!);
+      // Days in months we haven't loaded are left for the backend to validate.
+      if (status && status !== "AVAILABLE") return false;
+    }
+    return true;
+  }, [
+    pricingUnitCode,
+    date,
+    endDate,
+    startMonthAvailability.data,
+    endMonthAvailability.data,
+  ]);
+
+  const priceCalculation = useCalculatePrice();
 
   const create = useCreateReservation();
 
@@ -130,9 +159,7 @@ export function BookingDialog({
     setStartTime(initialStartTime || "");
     setEndTime(initialEndTime || "");
 
-    setContactName(
-      `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim(),
-    );
+    setContactName(`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim());
 
     setContactPhone(user?.phone ?? "");
 
@@ -142,44 +169,35 @@ export function BookingDialog({
     setAmenities([]);
 
     priceCalculation.reset();
-  }, [
-    open,
-    initialDate,
-    initialStartTime,
-    initialEndTime,
-    user?.id,
-  ]);
+  }, [open, initialDate, initialStartTime, initialEndTime, user?.id]);
 
   const availablePrices = useMemo(
     () =>
       (prices.data?.content ?? []).filter(
         (price) =>
           price.pricingUnitCode === "HOURLY" ||
-          price.pricingUnitCode === "DAILY",
+          (price.pricingUnitCode === "DAILY" && dayIsFullyFree),
       ),
-    [prices.data],
+    [prices.data, dayIsFullyFree],
   );
 
   const selectedPrice = availablePrices.find(
-    (price) =>
-      price.pricingUnitCode === pricingUnitCode,
+    (price) => price.pricingUnitCode === pricingUnitCode,
   );
 
-  const daySlots = useMemo(
-    () =>
-      (availability.data?.slots ?? []).filter(
-        (slot) => slot.status === "AVAILABLE",
-      ),
-    [availability.data],
-  );
+  const daySlots = useMemo(() => {
+    const now = DateTime.now();
+    return (availability.data?.slots ?? []).filter(
+      (slot) =>
+        slot.status === "AVAILABLE" &&
+        DateTime.fromISO(`${date}T${slot.start.slice(0, 5)}`, {
+          zone: timezone,
+        }) > now,
+    );
+  }, [availability.data, date, timezone]);
 
   const startOptions = useMemo(
-    () =>
-      [...new Set(
-        daySlots.map((slot) =>
-          slot.start.slice(0, 5),
-        ),
-      )],
+    () => [...new Set(daySlots.map((slot) => slot.start.slice(0, 5)))],
     [daySlots],
   );
 
@@ -187,22 +205,15 @@ export function BookingDialog({
     if (!startTime) return [];
 
     const startIndex = daySlots.findIndex(
-      (slot) =>
-        slot.start.slice(0, 5) === startTime,
+      (slot) => slot.start.slice(0, 5) === startTime,
     );
 
     if (startIndex < 0) return [];
 
     const values: string[] = [];
 
-    for (
-      let i = startIndex;
-      i < daySlots.length;
-      i++
-    ) {
-      values.push(
-        daySlots[i].end.slice(0, 5),
-      );
+    for (let i = startIndex; i < daySlots.length; i++) {
+      values.push(daySlots[i].end.slice(0, 5));
     }
 
     return [...new Set(values)];
@@ -212,9 +223,7 @@ export function BookingDialog({
     () =>
       (hours.data ?? []).find(
         (item) =>
-          item.dayOfWeek ===
-            DateTime.fromISO(date).weekday &&
-          !item.closed,
+          item.dayOfWeek === DateTime.fromISO(date).weekday && !item.closed,
       ),
     [hours.data, date],
   );
@@ -223,9 +232,7 @@ export function BookingDialog({
     () =>
       (hours.data ?? []).find(
         (item) =>
-          item.dayOfWeek ===
-            DateTime.fromISO(endDate).weekday &&
-          !item.closed,
+          item.dayOfWeek === DateTime.fromISO(endDate).weekday && !item.closed,
       ),
     [hours.data, endDate],
   );
@@ -236,42 +243,36 @@ export function BookingDialog({
     let startAt: string;
     let endAt: string;
 
-    if (
-      selectedPrice.pricingUnitCode === "HOURLY"
-    ) {
+    if (selectedPrice.pricingUnitCode === "HOURLY") {
       if (!startTime || !endTime) {
         priceCalculation.reset();
         return;
       }
 
-      startAt = DateTime.fromISO(
-        `${date}T${startTime}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      startAt = DateTime.fromISO(`${date}T${startTime}`, { zone: timezone })
+        .toUTC()
+        .toISO()!;
 
-      endAt = DateTime.fromISO(
-        `${date}T${endTime}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      endAt = DateTime.fromISO(`${date}T${endTime}`, { zone: timezone })
+        .toUTC()
+        .toISO()!;
     } else {
-      if (
-        !startHours?.openTime ||
-        !endHours?.closeTime ||
-        endDate < date
-      ) {
+      if (!startHours?.openTime || !endHours?.closeTime || endDate < date) {
         priceCalculation.reset();
         return;
       }
 
-      startAt = DateTime.fromISO(
-        `${date}T${startHours.openTime.slice(0, 5)}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      startAt = DateTime.fromISO(`${date}T${startHours.openTime.slice(0, 5)}`, {
+        zone: timezone,
+      })
+        .toUTC()
+        .toISO()!;
 
-      endAt = DateTime.fromISO(
-        `${endDate}T${endHours.closeTime.slice(0, 5)}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      endAt = DateTime.fromISO(`${endDate}T${endHours.closeTime.slice(0, 5)}`, {
+        zone: timezone,
+      })
+        .toUTC()
+        .toISO()!;
     }
 
     priceCalculation.mutate({
@@ -299,38 +300,27 @@ export function BookingDialog({
     !!purpose.trim() &&
     !!contactName.trim() &&
     (pricingUnitCode === "DAILY"
-      ? !!date &&
-        !!endDate &&
-        endDate >= date &&
-        !!startHours &&
-        !!endHours
-      : !!date &&
-        !!startTime &&
-        !!endTime &&
-        endTime > startTime);
+      ? !!date && !!endDate && endDate >= date && !!startHours && !!endHours
+      : !!date && !!startTime && !!endTime && endTime > startTime) &&
+    !!date &&
+    !!startTime &&
+    !!endTime &&
+    endTime > startTime &&
+    // TODO rangeFullyFree &&
+    DateTime.fromISO(`${date}T${startTime}`, { zone: timezone }) >
+      DateTime.now();
 
-  const addAmenity = (
-    amenityId: number,
-    quantity: number,
-  ) => {
+  const addAmenity = (amenityId: number, quantity: number) => {
     setAmenities((current) => {
-      const existing = current.find(
-        (item) =>
-          item.amenityId === amenityId,
-      );
+      const existing = current.find((item) => item.amenityId === amenityId);
 
       if (quantity <= 0) {
-        return current.filter(
-          (item) =>
-            item.amenityId !== amenityId,
-        );
+        return current.filter((item) => item.amenityId !== amenityId);
       }
 
       if (existing) {
         return current.map((item) =>
-          item.amenityId === amenityId
-            ? { ...item, quantity }
-            : item,
+          item.amenityId === amenityId ? { ...item, quantity } : item,
         );
       }
 
@@ -350,56 +340,46 @@ export function BookingDialog({
     let startAt: string;
     let endAt: string;
 
-    if (
-      selectedPrice.pricingUnitCode === "HOURLY"
-    ) {
+    if (selectedPrice.pricingUnitCode === "HOURLY") {
       if (!startTime || !endTime) return;
 
-      startAt = DateTime.fromISO(
-        `${date}T${startTime}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      startAt = DateTime.fromISO(`${date}T${startTime}`, { zone: timezone })
+        .toUTC()
+        .toISO()!;
 
-      endAt = DateTime.fromISO(
-        `${date}T${endTime}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      endAt = DateTime.fromISO(`${date}T${endTime}`, { zone: timezone })
+        .toUTC()
+        .toISO()!;
     } else {
-      if (
-        !startHours?.openTime ||
-        !endHours?.closeTime
-      ) {
+      if (!startHours?.openTime || !endHours?.closeTime) {
         return;
       }
 
-      startAt = DateTime.fromISO(
-        `${date}T${startHours.openTime.slice(0, 5)}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      startAt = DateTime.fromISO(`${date}T${startHours.openTime.slice(0, 5)}`, {
+        zone: timezone,
+      })
+        .toUTC()
+        .toISO()!;
 
-      endAt = DateTime.fromISO(
-        `${endDate}T${endHours.closeTime.slice(0, 5)}`,
-        { zone: timezone },
-      ).toUTC().toISO()!;
+      endAt = DateTime.fromISO(`${endDate}T${endHours.closeTime.slice(0, 5)}`, {
+        zone: timezone,
+      })
+        .toUTC()
+        .toISO()!;
     }
 
-    const created =
-      await create.mutateAsync({
-        roomId: room.id,
-        pricingUnitId:
-          selectedPrice.pricingUnitId,
-        startAt,
-        endAt,
-        purpose: purpose.trim(),
-        contactName: contactName.trim(),
-        contactPhone:
-          contactPhone.trim() || undefined,
-        companyName:
-          companyName.trim() || undefined,
-        notes:
-          notes.trim() || undefined,
-        amenities,
-      });
+    const created = await create.mutateAsync({
+      roomId: room.id,
+      pricingUnitId: selectedPrice.pricingUnitId,
+      startAt,
+      endAt,
+      purpose: purpose.trim(),
+      contactName: contactName.trim(),
+      contactPhone: contactPhone.trim() || undefined,
+      companyName: companyName.trim() || undefined,
+      notes: notes.trim() || undefined,
+      amenities,
+    });
 
     await queryClient.invalidateQueries({
       queryKey: ["user-reservations"],
@@ -408,6 +388,13 @@ export function BookingDialog({
     onCreated?.(created.id);
     onClose();
   };
+  useEffect(() => {
+    if (pricingUnitCode === "DAILY" && availability.data && !dayIsFullyFree) {
+      setPricingUnitCode("HOURLY");
+      setStartTime("");
+      setEndTime("");
+    }
+  }, [pricingUnitCode, availability.data, dayIsFullyFree]);
 
   return (
     <Modal
@@ -438,7 +425,7 @@ export function BookingDialog({
 
             <div className="flex-1 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                {roomType?.name ?? room.roomTypeName}
+                {location?.name ?? room.locationName}
               </p>
 
               <h3 className="mt-1 text-lg font-bold text-slate-950 dark:text-white">
@@ -446,17 +433,11 @@ export function BookingDialog({
               </h3>
 
               <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
-                <span>
-                  {room.roomNumber}
-                </span>
+                <span>{room.roomNumber}</span>
 
-                <span>
-                  {room.capacity} people
-                </span>
+                <span>{room.capacity} people</span>
 
-                <span>
-                  Floor {room.floor ?? "—"}
-                </span>
+                <span>Floor {room.floor ?? "—"}</span>
               </div>
             </div>
           </div>
@@ -471,9 +452,7 @@ export function BookingDialog({
 
           <div className="grid grid-cols-2 gap-3">
             {availablePrices.map((price) => {
-              const active =
-                pricingUnitCode ===
-                price.pricingUnitCode;
+              const active = pricingUnitCode === price.pricingUnitCode;
 
               return (
                 <button
@@ -481,9 +460,7 @@ export function BookingDialog({
                   key={price.pricingUnitId}
                   onClick={() => {
                     setPricingUnitCode(
-                      price.pricingUnitCode as
-                        | "HOURLY"
-                        | "DAILY",
+                      price.pricingUnitCode as "HOURLY" | "DAILY",
                     );
 
                     setStartTime("");
@@ -500,8 +477,7 @@ export function BookingDialog({
                   </p>
 
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    {price.price.toFixed(2)}{" "}
-                    {price.currencyCode}
+                    {price.price.toFixed(2)} {price.currencyCode}
                   </p>
                 </button>
               );
@@ -533,9 +509,7 @@ export function BookingDialog({
                 setEndTime("");
               }}
             >
-              <option value="">
-                Select start
-              </option>
+              <option value="">Select start</option>
 
               {startOptions.map((time) => (
                 <option key={time} value={time}>
@@ -548,13 +522,9 @@ export function BookingDialog({
               label="End time"
               value={endTime}
               disabled={!startTime}
-              onChange={(event) =>
-                setEndTime(event.target.value)
-              }
+              onChange={(event) => setEndTime(event.target.value)}
             >
-              <option value="">
-                Select end
-              </option>
+              <option value="">Select end</option>
 
               {endOptions.map((time) => (
                 <option key={time} value={time}>
@@ -570,9 +540,7 @@ export function BookingDialog({
               type="date"
               min={today}
               value={date}
-              onChange={(event) =>
-                setDate(event.target.value)
-              }
+              onChange={(event) => setDate(event.target.value)}
             />
 
             <Input
@@ -580,9 +548,7 @@ export function BookingDialog({
               type="date"
               min={date}
               value={endDate}
-              onChange={(event) =>
-                setEndDate(event.target.value)
-              }
+              onChange={(event) => setEndDate(event.target.value)}
             />
           </div>
         )}
@@ -599,9 +565,7 @@ export function BookingDialog({
               label="Purpose"
               required
               value={purpose}
-              onChange={(event) =>
-                setPurpose(event.target.value)
-              }
+              onChange={(event) => setPurpose(event.target.value)}
               placeholder="Team meeting"
             />
 
@@ -609,34 +573,26 @@ export function BookingDialog({
               label="Contact name"
               required
               value={contactName}
-              onChange={(event) =>
-                setContactName(event.target.value)
-              }
+              onChange={(event) => setContactName(event.target.value)}
             />
 
             <Input
               label="Contact phone"
               value={contactPhone}
-              onChange={(event) =>
-                setContactPhone(event.target.value)
-              }
+              onChange={(event) => setContactPhone(event.target.value)}
             />
 
             <Input
               label="Company"
               value={companyName}
-              onChange={(event) =>
-                setCompanyName(event.target.value)
-              }
+              onChange={(event) => setCompanyName(event.target.value)}
             />
           </div>
 
           <Input
             label="Notes"
             value={notes}
-            onChange={(event) =>
-              setNotes(event.target.value)
-            }
+            onChange={(event) => setNotes(event.target.value)}
             placeholder="Optional notes"
           />
         </div>
@@ -652,11 +608,8 @@ export function BookingDialog({
             <div className="space-y-2">
               {room.amenities.map((amenity) => {
                 const selected =
-                  amenities.find(
-                    (item) =>
-                      item.amenityId ===
-                      amenity.amenityId,
-                  )?.quantity ?? 0;
+                  amenities.find((item) => item.amenityId === amenity.amenityId)
+                    ?.quantity ?? 0;
 
                 return (
                   <div
@@ -696,10 +649,7 @@ export function BookingDialog({
                         onClick={() =>
                           addAmenity(
                             amenity.amenityId,
-                            Math.min(
-                              amenity.amount,
-                              selected + 1,
-                            ),
+                            Math.min(amenity.amount, selected + 1),
                           )
                         }
                         className="h-8 w-8 rounded-lg border border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300"
@@ -747,24 +697,26 @@ export function BookingDialog({
 
         {create.isError && (
           <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-400">
-            The room could not be reserved. Please check the schedule and try again.
+            The room could not be reserved. Please check the schedule and try
+            again.
+          </div>
+        )}
+        {pricingUnitCode === "DAILY" && !rangeFullyFree && (
+          <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+            Some days in this range are already booked or closed. Choose
+            different dates.
           </div>
         )}
 
         <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
-          <Button
-            variant="secondary"
-            onClick={onClose}
-          >
+          <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
 
           <Button
             disabled={!canSubmit}
             loading={create.isPending}
-            leftIcon={
-              <Icon name="calendar" size={17} />
-            }
+            leftIcon={<Icon name="calendar" size={17} />}
             onClick={() => void submit()}
           >
             Confirm reservation

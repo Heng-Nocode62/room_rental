@@ -49,12 +49,6 @@ export default function AdminLocationsPage() {
 
   const roles = useRoles();
 
-  /*
-   * Find the OWNER role.
-   *
-   * Prefer code because it is usually the stable backend value.
-   * The name fallback makes this a little more tolerant.
-   */
   const ownerRole = roles.data?.find(
     (role) =>
       role.code?.toUpperCase() === "OWNER" ||
@@ -63,12 +57,6 @@ export default function AdminLocationsPage() {
 
   const ownerRoleId = ownerRole?.id;
 
-  /*
-   * Get only users who have the OWNER role.
-   *
-   * -1 is used while roles are still loading so we do not
-   * accidentally fetch every user.
-   */
   const ownerUsers = useUsers({
     roleId: ownerRoleId ?? -1,
     page: 0,

@@ -25,9 +25,9 @@ export default function StaffRoomsPage() {
 
   const submit = async (values: any) => {
     if (dialog === "edit" && selected) {
-      await update.mutateAsync({ id: selected.id, request: { name: values.name.trim(), floor: values.floor.trim() || undefined, description: values.description.trim() || undefined } });
+      await update.mutateAsync({ id: selected.id, request: { name: values.name.trim(), floor: values.floor.trim() || undefined, description: values.description.trim() || undefined, hourlyPrice: Number(values.hourlyPrice ?? 0), dailyPrice: Number(values.dailyPrice ?? 0) } });
     } else if (scope.currentLocationId) {
-      await create.mutateAsync({ locationId: scope.currentLocationId, roomTypeId: Number(values.roomTypeId), roomNumber: values.roomNumber.trim(), name: values.name.trim(), floor: values.floor.trim() || undefined, description: values.description.trim() || undefined, amenities: (values.amenities ?? []).map((item: any) => ({ amenityId: Number(item.amenityId), amount: Number(item.amount) })) });
+      await create.mutateAsync({ locationId: scope.currentLocationId, roomTypeId: Number(values.roomTypeId), roomNumber: values.roomNumber.trim(), name: values.name.trim(), floor: values.floor.trim() || undefined, description: values.description.trim() || undefined, hourlyPrice: Number(values.hourlyPrice ?? 0), dailyPrice: Number(values.dailyPrice ?? 0), amenities: (values.amenities ?? []).map((item: any) => ({ amenityId: Number(item.amenityId), amount: Number(item.amount) })) });
     }
     close();
   };

@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import AppLayout from "../components/layout/AppLayout";
 import OwnerLayout from "../components/layout/OwnerLayout";
 import StaffLayout from "../components/layout/StaffLayout";
-import UserLayout from "../components/layout/user/UserLayout";
 import LoginPage from "../features/auth/pages/LoginPage";
 import RoleRedirect from "./RoleRedirect";
 import RequireRole from "./RequireRole";
@@ -51,11 +50,17 @@ import UserRoomDetailsPage from "../features/user/pages/UserRoomDetailsPage";
 import UserBrowseRoomsPage from "../features/user/pages/UserBrowseRoomsPage";
 import UserPortalLayout from "../features/user/components/UserPortalLayout";
 import { UserThemeProvider } from "../features/user/UserThemeProvider";
+import AdminUserLocationRolesPage from "../features/admin/pages/AdminLocationRolesPage";
+import ForgotPasswordPage from "../features/auth/pages/ForgetPasswordPage";
+import ResetPasswordPage from "../features/auth/pages/ResetPasswordPage";
+import AccountProfilePage from "../features/auth/pages/AccountProfilePage";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
   { path: "/verify-email", element: <VerifyEmailPage /> },
+   { path: "/forgot-password", element: <ForgotPasswordPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
   {
     element: <ProtectedRoute />,
     children: [
@@ -66,6 +71,7 @@ export const router = createBrowserRouter([
           {
             element: <AppLayout />,
             children: [
+              { path: "/profile", element: <AccountProfilePage /> },
               { path: "/dashboard", element: <AdminDashboardPage /> },
               { path: "/rooms", element: <AdminRoomsPage /> },
               { path: "/reservations", element: <AdminReservationsPage /> },
@@ -82,6 +88,7 @@ export const router = createBrowserRouter([
               { path: "/rooms/new", element: <Navigate to="/rooms" replace /> },
               { path: "/rooms/:id", element: <Navigate to="/rooms" replace /> },
               { path: "/permissions", element: <AdminPermissionsPage /> },
+              { path: "/user-location-roles", element: <AdminUserLocationRolesPage /> },
               {
                 path: "/room-blocks/new",
                 element: <Navigate to="/room-blocks" replace />,
@@ -132,6 +139,7 @@ export const router = createBrowserRouter([
               </LocationScopeProvider>
             ),
             children: [
+              { path: "/owner/profile", element: <AccountProfilePage /> },
               { path: "/owner/dashboard", element: <OwnerDashboardPage /> },
               { path: "/owner/rooms", element: <OwnerRoomsPage /> },
               {

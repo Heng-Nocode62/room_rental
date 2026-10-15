@@ -25,10 +25,21 @@ export default function ReservationsPage() {
   const [page, setPage] = useState(0);
   const [view, setView] = useState<ReservationResponse | null>(null);
 
+  const [roomId, setRoomId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [pricingUnitId, setPricingUnitId] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
   const list = useReservations({
     keyword: keyword.trim() || undefined,
     status: status || undefined,
+    roomId: roomId ? Number(roomId) : undefined,
+    locationId: locationId ? Number(locationId) : undefined,
+    pricingUnitId: pricingUnitId ? Number(pricingUnitId) : undefined,
     date: date || undefined,
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined,
     page,
     size: 20,
     sort: "startAt,desc",
@@ -45,16 +56,19 @@ export default function ReservationsPage() {
   ) => {
     const mutation = { confirm, cancel, checkIn, checkOut }[action];
     void mutation.mutateAsync(reservation.id).then((updated) => {
-      setView((current) =>
-        current?.id === updated.id ? updated : current,
-      );
+      setView((current) => (current?.id === updated.id ? updated : current));
     });
   };
 
   const clearFilters = () => {
     setKeyword("");
     setStatus("");
+    setLocationId("");
+    setRoomId("");
+    setPricingUnitId("");
     setDate("");
+    setFromDate("");
+    setToDate("");
     setPage(0);
   };
 
@@ -74,9 +88,15 @@ export default function ReservationsPage() {
       />
 
       <ReservationFilters
+        showResourceFilters
         keyword={keyword}
         status={status}
         date={date}
+        locationId={locationId}
+        roomId={roomId}
+        pricingUnitId={pricingUnitId}
+        fromDate={fromDate}
+        toDate={toDate}
         onKeywordChange={(value) => {
           setKeyword(value);
           setPage(0);
@@ -85,10 +105,38 @@ export default function ReservationsPage() {
           setStatus(value);
           setPage(0);
         }}
-        onDateChange={(value) => {
-          setDate(value);
+        onLocationIdChange={(value) => {
+          setLocationId(value);
+          setRoomId("");
           setPage(0);
         }}
+        onRoomIdChange={(value) => {
+          setRoomId(value);
+          setPage(0);
+        }}
+        onPricingUnitIdChange={(value) => {
+          setPricingUnitId(value);
+          setPage(0);
+        }}
+        onDateChange={(value) => {
+          setDate(value);
+          if (value) {
+            setFromDate("");
+            setToDate("");
+          }
+          setPage(0);
+        }}
+        onFromDateChange={(value) => {
+          setFromDate(value);
+          if (value) setDate("");
+          setPage(0);
+        }}
+        onToDateChange={(value) => {
+          setToDate(value);
+          if (value) setDate("");
+          setPage(0);
+        }}
+        onClearFilters={clearFilters}
       />
 
       {list.isLoading && <LoadingState />}
@@ -98,10 +146,7 @@ export default function ReservationsPage() {
           title="Unable to load reservations"
           description="Something went wrong while loading reservations."
           action={
-            <Button
-              variant="secondary"
-              onClick={() => void list.refetch()}
-            >
+            <Button variant="secondary" onClick={() => void list.refetch()}>
               Try again
             </Button>
           }
@@ -157,4 +202,3 @@ export default function ReservationsPage() {
     </div>
   );
 }
-

@@ -7,9 +7,8 @@ import {
   Modal,
   PageHeader,
   Pagination,
-  Card,
 } from "../../../components/ui";
-import { Languages, Plus, RefreshCw, Trash2 } from "../../../components/ui/MaterialIcon.tsx";
+import { Languages, Plus } from "../../../components/ui/MaterialIcon.tsx";
 import { useLanguages } from "../../languages/hooks/useLanguages";
 import { useCreateLanguage } from "../../languages/hooks/useCreateLanguage";
 import { useUpdateLanguage } from "../../languages/hooks/useUpdateLanguage";
@@ -213,7 +212,7 @@ export default function AdminLanguagesPage() {
 
       <Modal open={showTranslationForm || Boolean(editingTranslation)} onClose={() => { setShowTranslationForm(false); setEditingTranslation(null); }} title={editingTranslation ? `Edit translation · ${editingTranslation.key}` : "Add translation"}>
         <TranslationForm
-          initialValues={editingTranslation ? { key: editingTranslation.key, value: editingTranslation.value, active: editingTranslation.active } : undefined}
+          initialValues={editingTranslation ? { key: editingTranslation.key, value: editingTranslation.value as import("../../languages/types/translation").JsonValue, active: editingTranslation.active } : undefined}
           onSubmit={submitTranslation}
           onCancel={() => { setShowTranslationForm(false); setEditingTranslation(null); }}
           loading={upsert.isPending}

@@ -62,7 +62,7 @@ export default function OwnerRoomPricesPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <PageHeader title="Room Pricing" description="Manage room rates, pricing units, and effective periods."
         icon={<Tags size={19} />}
         actions={<Button leftIcon={<Plus size={17} />} onClick={() => setDialog("create")}>Create price</Button>}

@@ -41,7 +41,7 @@ export default function RoomTypesPage() {
     if (mode === "edit" && selected)
       await update.mutateAsync({ id: selected.id, request: req });
     else
-      await create.mutateAsync({ name: req.name, code: v.code.trim(), ...req });
+      await create.mutateAsync({ code: v.code.trim(), ...req });
     close();
   };
   return (

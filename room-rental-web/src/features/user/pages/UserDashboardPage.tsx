@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { DateTime } from "luxon";
 
@@ -7,28 +7,196 @@ import { useLocations } from "../../locations/hooks/useLocations";
 import { useRoomTypes } from "../../room-types/hooks/useRoomTypes";
 import { useRooms } from "../../rooms/hooks/useRooms";
 
-
-import {
-  Button,
-  Card,
-  Icon,
-  Input,
-  SelectInput,
-  SectionTitle,
-  PageLoading,
-  RoomPlaceholder,
-} from "../components/UserUI";
+import { Icon, StatusBadge, cn } from "../components/UserUI";
 
 import { RoomCard } from "../components/RoomCard";
 import { LocationCard } from "../components/LocationCard";
 import { useMyReservations } from "../hooks/useMyReservation";
 
+/* Keep these in sync with the Browse Rooms page (or move both to a shared file). */
+const START_TIMES = [
+  "08:00", "09:00", "10:00", "11:00", "12:00",
+  "13:00", "14:00", "15:00", "16:00", "17:00", "18:00",
+];
+const DURATIONS = [1, 2, 3, 4, 5, 6, 8];
+
+const fieldClass =
+  "w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-slate-800 outline-none transition " +
+  "focus:border-blue-400 focus:ring-4 focus:ring-blue-400/20 " +
+  "dark:border-slate-700 dark:bg-slate-800 dark:text-white";
+
+const roomGridClass =
+  "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4";
+
+/* ─────────────────────────────────────────────
+   Small building blocks
+───────────────────────────────────────────── */
+function SectionHeader({
+  title,
+  description,
+  actionLabel,
+  actionTo,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  actionTo: string;
+}) {
+  return (
+    <div className="flex items-end justify-between gap-4">
+      <div className="min-w-0">
+        <h2 className="text-xl font-bold tracking-tight text-slate-950 dark:text-white">
+          {title}
+        </h2>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {description}
+        </p>
+      </div>
+      <Link
+        to={actionTo}
+        className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+      >
+        {actionLabel}
+        <Icon name="arrow-right" size={14} />
+      </Link>
+    </div>
+  );
+}
+
+function StatItem({
+  value,
+  label,
+  icon,
+}: {
+  value: number | string;
+  label: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-4">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xl font-bold leading-none tracking-tight text-slate-950 dark:text-white">
+          {value}
+        </p>
+        <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+          {label}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function relativeDayLabel(start: DateTime) {
+  const today = DateTime.now().startOf("day");
+  const diff = Math.round(start.startOf("day").diff(today, "days").days);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  return start.toFormat("ccc, dd MMM");
+}
+
+function UpcomingBooking({
+  reservation,
+  moreCount,
+}: {
+  reservation: {
+    roomName: string;
+    referenceNumber?: string;
+    startAt: string;
+    endAt: string;
+    status: string;
+  };
+  moreCount: number;
+}) {
+  const start = DateTime.fromISO(reservation.startAt);
+  const end = DateTime.fromISO(reservation.endAt);
+
+  return (
+    <section
+      aria-label="Your next booking"
+      className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-500/30 dark:bg-blue-500/10"
+    >
+      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          {/* Date tile */}
+          <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+            <span className="text-[11px] font-medium leading-none opacity-80">
+              {start.toFormat("MMM")}
+            </span>
+            <span className="mt-1 text-2xl font-bold leading-none">
+              {start.toFormat("dd")}
+            </span>
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                Your next booking · {relativeDayLabel(start)}
+              </p>
+              <StatusBadge status={reservation.status} />
+            </div>
+            <h2 className="mt-1 truncate text-lg font-bold tracking-tight text-slate-950 dark:text-white">
+              {reservation.roomName}
+            </h2>
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-300">
+              <span className="inline-flex items-center gap-1.5">
+                <Icon name="clock" size={14} />
+                {start.toFormat("hh:mm a")} – {end.toFormat("hh:mm a")}
+              </span>
+              {reservation.referenceNumber && (
+                <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                  Ref {reservation.referenceNumber}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3">
+          {moreCount > 0 && (
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              +{moreCount} more upcoming
+            </span>
+          )}
+          <Link
+            to="/user/reservations"
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm ring-1 ring-blue-200 transition hover:bg-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-500/30 dark:hover:bg-slate-800"
+          >
+            View bookings
+            <Icon name="arrow-right" size={15} />
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RoomSkeletons({ count }: { count: number }) {
+  return (
+    <div className={roomGridClass} aria-hidden="true">
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={index}
+          className="h-72 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Main page
+───────────────────────────────────────────── */
 export default function UserDashboardPage() {
   const navigate = useNavigate();
+  const today = DateTime.now().toISODate() ?? "";
 
   const { data: user } = useCurrentUser();
   const { data: locations = [] } = useLocations();
   const { data: roomTypes = [] } = useRoomTypes();
+  const reservations = useMyReservations();
 
   const rooms = useRooms({
     status: "ACTIVE",
@@ -37,36 +205,23 @@ export default function UserDashboardPage() {
     sort: "roomNumber,asc",
   });
 
-  const reservations = useMyReservations();
-
   const [locationId, setLocationId] = useState("");
-  const [date, setDate] = useState(
-    DateTime.now().toISODate() ?? "",
-  );
+  const [date, setDate] = useState(today);
   const [startTime, setStartTime] = useState("10:00");
+  const [durationHours, setDurationHours] = useState("2");
 
   const activeLocations = useMemo(
-    () =>
-      locations.filter(
-        (location) => location.status === "ACTIVE",
-      ),
+    () => locations.filter((location) => location.status === "ACTIVE"),
     [locations],
   );
 
   const roomTypeMap = useMemo(
-    () =>
-      new Map(
-        roomTypes.map((roomType) => [
-          roomType.id,
-          roomType,
-        ]),
-      ),
+    () => new Map(roomTypes.map((roomType) => [roomType.id, roomType])),
     [roomTypes],
   );
 
   const upcoming = useMemo(() => {
     const now = Date.now();
-
     return [...(reservations.data ?? [])]
       .filter(
         (reservation) =>
@@ -75,238 +230,200 @@ export default function UserDashboardPage() {
       )
       .sort(
         (a, b) =>
-          new Date(a.startAt).getTime() -
-          new Date(b.startAt).getTime(),
+          new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
       );
   }, [reservations.data]);
 
-  const search = () => {
-    const params = new URLSearchParams();
-
-    if (locationId) {
-      params.set("locationId", locationId);
-    }
-
-    if (date) {
-      params.set("date", date);
-    }
-
-    if (startTime) {
-      params.set("startTime", startTime);
-    }
-
-    navigate(
-      `/user/rooms?${params.toString()}`,
-    );
+  const search = (event: FormEvent) => {
+    event.preventDefault();
+    const params = new URLSearchParams({ date, startTime, durationHours });
+    if (locationId) params.set("locationId", locationId);
+    navigate(`/user/rooms?${params.toString()}`);
   };
 
-  if (rooms.isLoading) {
-    return <PageLoading />;
-  }
+  const roomList = rooms.data?.content ?? [];
+  const activeRoomCount = rooms.data?.totalElements ?? roomList.length;
 
   return (
-    <div>
-      {/* HERO */}
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      {/* ── Hero: greeting + search ── */}
+      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
+          <h1 className="max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+            {user?.firstName
+              ? `Welcome back, ${user.firstName}`
+              : "Find a room for your next meeting"}
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Pick a date and time to see which rooms are free.
+          </p>
 
-      <section className="relative overflow-hidden border-b border-slate-200 dark:border-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-950 dark:to-blue-950/30" />
-
-        <div className="relative mx-auto grid max-w-[1440px] gap-10 px-4 py-12 lg:grid-cols-[1.1fr_.9fr] lg:px-8 lg:py-16">
-          <div className="flex flex-col justify-center">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-              RoomRental
-            </p>
-
-            <h1 className="mt-4 max-w-2xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl dark:text-white">
-              Find a room for your next meeting
-            </h1>
-
-            <p className="mt-4 max-w-xl text-base leading-7 text-slate-600 dark:text-slate-400">
-              Welcome back,{" "}
-              <span className="font-semibold text-slate-900 dark:text-white">
-                {user?.firstName ?? "there"}
-              </span>
-              . Find a suitable room and reserve it in just a few steps.
-            </p>
-
-            <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-3 shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900">
-              <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_1fr_auto]">
-                <SelectInput
+          <form
+            onSubmit={search}
+            className="mt-6 w-full max-w-5xl rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"
+          >
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_0.9fr_0.8fr_auto]">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Icon name="map-pin" size={15} />
+                </span>
+                <select
+                  aria-label="Location"
                   value={locationId}
-                  onChange={(event) =>
-                    setLocationId(event.target.value)
-                  }
+                  onChange={(e) => setLocationId(e.target.value)}
+                  className={fieldClass}
                 >
-                  <option value="">
-                    All locations
-                  </option>
-
+                  <option value="">All locations</option>
                   {activeLocations.map((location) => (
-                    <option
-                      key={location.id}
-                      value={location.id}
-                    >
+                    <option key={location.id} value={location.id}>
                       {location.name}
                     </option>
                   ))}
-                </SelectInput>
+                </select>
+              </div>
 
-                <Input
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Icon name="calendar" size={15} />
+                </span>
+                <input
+                  aria-label="Date"
                   type="date"
                   value={date}
-                  onChange={(event) =>
-                    setDate(event.target.value)
-                  }
-                  min={
-                    DateTime.now().toISODate() ?? undefined
-                  }
-                />
-
-                <Input
-                  type="time"
-                  value={startTime}
-                  onChange={(event) =>
-                    setStartTime(event.target.value)
-                  }
-                />
-
-                <Button
-                  onClick={search}
-                  leftIcon={<Icon name="search" size={17} />}
-                  className="h-[46px]"
-                >
-                  Search
-                </Button>
-              </div>
-            </div>
-
-            <div className="mt-5 flex flex-wrap gap-5 text-sm text-slate-500 dark:text-slate-400">
-              <span className="inline-flex items-center gap-2">
-                <Icon name="check" size={16} className="text-emerald-500" />
-                Real-time availability
-              </span>
-
-              <span className="inline-flex items-center gap-2">
-                <Icon name="calendar" size={16} className="text-blue-500" />
-                Hourly & daily booking
-              </span>
-            </div>
-          </div>
-
-          <div className="hidden lg:block">
-            <div className="relative h-full min-h-[360px] overflow-hidden rounded-[32px] bg-white shadow-2xl shadow-slate-900/10 dark:bg-slate-900">
-              {roomTypes[0]?.imageUrl ? (
-                <img
-                  src={roomTypes[0].imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <RoomPlaceholder className="h-full w-full" />
-              )}
-
-              <div className="absolute inset-x-6 bottom-6 rounded-2xl border border-white/60 bg-white/90 p-4 backdrop-blur dark:border-white/10 dark:bg-slate-950/85">
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                  Explore
-                </p>
-
-                <p className="mt-1 font-bold text-slate-950 dark:text-white">
-                  Comfortable spaces for work, meetings and events.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="mx-auto max-w-[1440px] space-y-12 px-4 py-10 lg:px-8">
-        {/* UPCOMING */}
-
-        {upcoming[0] && (
-          <Card className="overflow-hidden border-blue-100 bg-blue-50/70 dark:border-blue-900/50 dark:bg-blue-950/20">
-            <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-400">
-                  Your next reservation
-                </p>
-
-                <h2 className="mt-2 text-xl font-bold text-slate-950 dark:text-white">
-                  {upcoming[0].roomName}
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                  {DateTime.fromISO(upcoming[0].startAt).toFormat(
-                    "dd MMM yyyy · HH:mm",
-                  )}{" "}
-                  —{" "}
-                  {DateTime.fromISO(upcoming[0].endAt).toFormat(
-                    "HH:mm",
+                  min={today}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={cn(
+                    fieldClass,
+                    "[color-scheme:light] dark:[color-scheme:dark]",
                   )}
-                </p>
+                />
               </div>
 
-              <Link to="/user/reservations">
-                <Button variant="secondary">
-                  View reservation
-                </Button>
-              </Link>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <Icon name="clock" size={15} />
+                </span>
+                <select
+                  aria-label="Start time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className={fieldClass}
+                >
+                  {START_TIMES.map((time) => (
+                    <option key={time} value={time}>
+                      {DateTime.fromFormat(time, "HH:mm").toFormat("hh:mm a")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <select
+                aria-label="Duration"
+                value={durationHours}
+                onChange={(e) => setDurationHours(e.target.value)}
+                className={cn(fieldClass, "pl-3")}
+              >
+                {DURATIONS.map((hours) => (
+                  <option key={hours} value={hours}>
+                    {hours} {hours === 1 ? "hour" : "hours"}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/30 active:scale-[0.98]"
+              >
+                <Icon name="search" size={15} />
+                Find rooms
+              </button>
             </div>
-          </Card>
+          </form>
+        </div>
+      </header>
+
+      {/* ── Body ── */}
+      <main className="mx-auto max-w-[1440px] space-y-10 px-4 py-8 sm:px-6 lg:px-8">
+        {upcoming[0] && (
+          <UpcomingBooking
+            reservation={upcoming[0]}
+            moreCount={upcoming.length - 1}
+          />
         )}
 
-        {/* LOCATIONS */}
+        {/* Stats strip */}
+        <div className="grid grid-cols-1 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <StatItem
+            value={activeRoomCount}
+            label="Active rooms"
+            icon={<Icon name="building" size={18} />}
+          />
+          <StatItem
+            value={activeLocations.length}
+            label="Locations"
+            icon={<Icon name="map-pin" size={18} />}
+          />
+          <StatItem
+            value={upcoming.length}
+            label="Your upcoming bookings"
+            icon={<Icon name="calendar" size={18} />}
+          />
+        </div>
 
+        {/* Locations */}
         <section className="space-y-5">
-          <SectionTitle
+          <SectionHeader
             title="Our locations"
-            description="Choose a location and explore its available rooms."
-            action={
-              <Link
-                to="/user/rooms"
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              >
-                View all
-              </Link>
-            }
+            description="Choose a location to see its rooms."
+            actionLabel="View all"
+            actionTo="/user/rooms"
           />
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {activeLocations.slice(0, 3).map((location) => (
-              <LocationCard
-                key={location.id}
-                location={location}
-              />
-            ))}
-          </div>
+          {activeLocations.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              No locations are available right now.
+            </p>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {activeLocations.slice(0, 3).map((location) => (
+                <LocationCard key={location.id} location={location} />
+              ))}
+            </div>
+          )}
         </section>
 
-        {/* ROOMS */}
-
+        {/* Featured rooms */}
         <section className="space-y-5">
-          <SectionTitle
-            title="Recommended rooms"
-            description="Explore some of the rooms currently available in the system."
-            action={
-              <Link
-                to="/user/rooms"
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              >
-                Browse all
-              </Link>
-            }
+          <SectionHeader
+            title="Featured rooms"
+            description="A selection of rooms you can book today."
+            actionLabel="Browse all rooms"
+            actionTo="/user/rooms"
           />
 
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {(rooms.data?.content ?? []).map((room) => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                roomType={roomTypeMap.get(room.roomTypeId)}
-              />
-            ))}
-          </div>
+          {rooms.isLoading ? (
+            <RoomSkeletons count={8} />
+          ) : rooms.isError ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              We couldn't load rooms. Refresh the page to try again.
+            </p>
+          ) : roomList.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              No rooms are available right now.
+            </p>
+          ) : (
+            <div className={roomGridClass}>
+              {roomList.map((room) => (
+                <RoomCard
+                  key={room.id}
+                  room={room}
+                  roomType={roomTypeMap.get(room.roomTypeId)}
+                />
+              ))}
+            </div>
+          )}
         </section>
-      </div>
+      </main>
     </div>
   );
 }

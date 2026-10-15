@@ -34,7 +34,9 @@ export default function Header() {
 
           <p className="text-xs text-slate-500">{user?.username}</p>
         </div>
-
+        <Button variant="ghost" onClick={() => navigate("/profile")}>
+          My profile
+        </Button>
         <ThemeToggle />
         <LanguageSwitcher />
 

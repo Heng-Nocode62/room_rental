@@ -28,9 +28,6 @@ import { createIcon } from "../../../components/ui/MaterialIcon.tsx"; // adjust 
 // Create one icon component per section. If you already export these
 // elsewhere (e.g. a shared icons.ts), import them instead of redeclaring here.
 const TuneIcon = createIcon("tune");
-const AdminPanelSettingsIcon = createIcon("admin_panel_settings");
-const DnsIcon = createIcon("dns");
-const FactCheckIcon = createIcon("fact_check");
 const ScheduleIcon = createIcon("schedule");
 const TextFieldsIcon = createIcon("text_fields");
 const QrCodeIcon = createIcon("qr_code_2");

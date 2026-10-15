@@ -7,7 +7,17 @@ interface Props {
 }
 
 export function RoomTypeStatusBadge({ status }: Props) {
-  const variant = status === "ACTIVE" ? "success" : "neutral";
+  const active = String(status) === "ACTIVE";
 
-  return <Badge variant={variant}>{status}</Badge>;
+  return (
+    <Badge variant={active ? "success" : "neutral"}>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className={`h-1.5 w-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-slate-400"}`}
+        />
+        {active ? "Active" : "Inactive"}
+      </span>
+    </Badge>
+  );
 }

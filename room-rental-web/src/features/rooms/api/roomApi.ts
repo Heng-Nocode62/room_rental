@@ -21,9 +21,42 @@ export const roomApi = {
         minCapacity: params.minCapacity,
         maxCapacity: params.maxCapacity,
         amenityId: params.amenityId,
+        amenityIds: params.amenityIds,
+        floors: params.floors,
+        minHourlyPrice: params.minHourlyPrice,
+        maxHourlyPrice: params.maxHourlyPrice,
+        effectiveDate: params.effectiveDate,
         page: params.page ?? 0,
         size: params.size ?? 20,
         sort: params.sort ?? "roomNumber,asc",
+      },
+      // Spring List<> request parameters require repeated keys, e.g.
+      // amenityIds=1&amenityIds=2 (not amenityIds[]=1).
+      paramsSerializer: {
+        serialize: (queryParams) => {
+          const query = new URLSearchParams();
+
+          Object.entries(queryParams as Record<string, unknown>).forEach(
+            ([key, value]) => {
+              if (value === undefined || value === null || value === "") {
+                return;
+              }
+
+              if (Array.isArray(value)) {
+                value.forEach((item) => {
+                  if (item !== undefined && item !== null && item !== "") {
+                    query.append(key, String(item));
+                  }
+                });
+                return;
+              }
+
+              query.append(key, String(value));
+            },
+          );
+
+          return query.toString();
+        },
       },
     });
 

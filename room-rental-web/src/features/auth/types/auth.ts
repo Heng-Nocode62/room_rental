@@ -1,3 +1,4 @@
+
 export interface LoginRequest {
   email: string;
   password: string;
@@ -29,6 +30,27 @@ export interface ResendOtpRequest {
   email: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  newPassword: string;
+}
+
+export interface UpdateMyProfileRequest {
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+}
+
+export interface ChangeMyPasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export interface AuthUser {
   id: number;
   username?: string;
@@ -36,6 +58,7 @@ export interface AuthUser {
   lastName: string;
   phone?: string;
   email?: string;
+  status: string;
   roles: Role[];
   navigation: NavigationItemResponse[];
 }

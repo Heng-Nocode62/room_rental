@@ -1,113 +1,144 @@
 import { Link } from "react-router-dom";
+import { DateTime } from "luxon";
 
 import type { RoomResponse } from "../../rooms/types/room";
 import type { RoomTypeResponse } from "../../room-types/types/roomType";
 
-import {
-  Icon,
-  RoomPlaceholder,
-} from "./UserUI";
+import { Icon, RoomPlaceholder, cn } from "./UserUI";
 
 export function RoomCard({
   room,
   roomType,
+  effectiveDate,
 }: {
   room: RoomResponse;
+  /** Used only as a temporary image source until imageUrl moves to Room. */
   roomType?: RoomTypeResponse;
+  /** Date selected in Browse Rooms; defaults to today on the dashboard. */
+  effectiveDate?: string;
 }) {
+  const amenities = (room.amenities ?? [])
+    .map((amenity) => amenity.name)
+    .filter(Boolean);
+  const visibleAmenities = amenities.slice(0, 3);
+  const overflowCount = amenities.length - visibleAmenities.length;
+
+  const priceDate = effectiveDate ?? DateTime.now().toISODate() ?? "";
+
+  const findEffectivePrice = (unitCode: "HOURLY" | "DAILY") => {
+    const eligible = (room.prices ?? [])
+      .filter((price) => price.pricingUnitCode.toUpperCase() === unitCode)
+      .filter((price) => price.effectiveFrom <= priceDate)
+      .filter((price) => !price.effectiveTo || price.effectiveTo >= priceDate)
+      .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+
+    return eligible.find((price) => price.status === "ACTIVE") ?? eligible[0];
+  };
+
+  const hourlyPrice = findEffectivePrice("HOURLY");
+  const dailyPrice = findEffectivePrice("DAILY");
+
   return (
-    <article className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900">
-      <Link to={`/user/rooms/${room.id}`}>
-        <div className="relative aspect-[1.55] overflow-hidden">
+    <article
+      className={cn(
+        "group flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm",
+        "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-900/5",
+        "dark:border-slate-800 dark:bg-slate-900 dark:hover:shadow-black/20",
+      )}
+    >
+      <Link to={`/user/rooms/${room.id}`} className="block">
+        <div className="relative aspect-[16/9] overflow-hidden bg-slate-100 dark:bg-slate-800">
           {roomType?.imageUrl ? (
             <img
               src={roomType.imageUrl}
-              alt={roomType.name}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+              alt={room.name}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <RoomPlaceholder className="h-full w-full" />
+            <RoomPlaceholder className="h-full w-full transition-transform duration-500 group-hover:scale-105" />
           )}
 
-          <div className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-slate-600 shadow-sm backdrop-blur dark:bg-slate-950/80 dark:text-slate-200">
-            <Icon name="heart" size={16} />
-          </div>
-        </div>
-
-        <div className="space-y-3 p-4">
-          <div>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                  {roomType?.name ?? room.roomTypeName}
-                </p>
-
-                <h3 className="mt-1 font-bold text-slate-950 dark:text-white">
-                  {room.name}
-                </h3>
-              </div>
-
-              <div className="text-right">
-                <p className="text-base font-extrabold text-slate-950 dark:text-white">
-                  {formatStartingPrice(room)}
-                </p>
-                <p className="text-[11px] text-slate-400">
-                  per hour
-                </p>
-              </div>
-            </div>
+          <div className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-slate-500 shadow-sm backdrop-blur dark:bg-slate-950/80 dark:text-slate-300">
+            <Icon name="heart" size={14} />
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <span className="inline-flex items-center gap-1">
-              <Icon name="users" size={14} />
-              {room.capacity} people
+          {room.capacity != null && (
+            <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[11px] font-semibold text-slate-800 shadow-sm backdrop-blur dark:bg-slate-950/85 dark:text-slate-100">
+              <Icon name="users" size={12} />
+              {room.capacity}
             </span>
-
-            <span className="inline-flex items-center gap-1">
-              <Icon name="building" size={14} />
-              Floor {room.floor ?? "—"}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {room.amenities.slice(0, 3).map((amenity) => (
-              <span
-                key={amenity.amenityId}
-                className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-              >
-                {amenity.name}
-              </span>
-            ))}
-
-            {room.amenities.length > 3 && (
-              <span className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                +{room.amenities.length - 3}
-              </span>
-            )}
-          </div>
+          )}
         </div>
       </Link>
 
-      <div className="px-4 pb-4">
-        <Link
-          to={`/user/rooms/${room.id}`}
-          className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-        >
-          View details
-          <Icon name="arrow-right" size={16} />
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <Link to={`/user/rooms/${room.id}`} className="min-w-0">
+          <h3 className="truncate text-sm font-bold tracking-tight text-slate-950 dark:text-white">
+            {room.name}
+          </h3>
+          <p className="mt-0.5 truncate text-[11px] text-slate-500 dark:text-slate-400">
+            {room.locationName} · Room {room.roomNumber}
+            {room.floor ? ` · Floor ${room.floor}` : ""}
+          </p>
         </Link>
+
+        {visibleAmenities.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {visibleAmenities.map((amenity, index) => (
+              <span
+                key={`${amenity}-${index}`}
+                className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              >
+                {amenity}
+              </span>
+            ))}
+            {overflowCount > 0 && (
+              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                +{overflowCount}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex-1" />
+
+        <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-slate-800">
+          <div className="min-w-0">
+            {hourlyPrice ? (
+              <p className="truncate text-sm font-extrabold text-slate-950 dark:text-white">
+                {hourlyPrice.price.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}{" "}
+                {hourlyPrice.currencyCode}
+                <span className="ml-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  /hr
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Price unavailable
+              </p>
+            )}
+            {dailyPrice && (
+              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                {dailyPrice.price.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}{" "}
+                {dailyPrice.currencyCode} / day
+              </p>
+            )}
+          </div>
+
+          <Link
+            to={`/user/rooms/${room.id}`}
+            aria-label={`View details for ${room.name}`}
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]"
+          >
+            View
+            <Icon name="arrow-right" size={13} />
+          </Link>
+        </div>
       </div>
     </article>
   );
-}
-
-function formatStartingPrice(room: RoomResponse) {
-  const hourly = room.prices.find(
-    (price) => price.pricingUnitCode === "HOURLY",
-  );
-
-  if (!hourly) return "—";
-
-  return `${hourly.price.toFixed(2)} ${hourly.currencyCode}`;
 }

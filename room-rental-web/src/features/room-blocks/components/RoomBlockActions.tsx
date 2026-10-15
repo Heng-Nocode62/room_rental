@@ -23,16 +23,22 @@ export function RoomBlockActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button onClick={onComplete} loading={loadingAction === "complete"}>
-        Mark Complete
+      <Button
+        variant="secondary"
+        onClick={onCancel}
+        loading={loadingAction === "cancel"}
+        disabled={loadingAction !== null}
+        className="text-red-600 hover:bg-red-50"
+      >
+        Cancel block
       </Button>
 
       <Button
-        variant="danger"
-        onClick={onCancel}
-        loading={loadingAction === "cancel"}
+        onClick={onComplete}
+        loading={loadingAction === "complete"}
+        disabled={loadingAction !== null}
       >
-        Cancel Block
+        Mark complete
       </Button>
     </div>
   );

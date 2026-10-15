@@ -26,7 +26,14 @@ input[type="time"] {
   -webkit-appearance: none;
   appearance: none;
 }
+:root {
+  color: #0f172a;
+  background: #f8fafc;
+}
 
+html[data-theme="dark"] .room-image-placeholder {
+  background: #161c24;
+}
 :root {
   font-family: var(--app-font-family, "Noto Sans Khmer", Inter),
     ui-sans-serif,

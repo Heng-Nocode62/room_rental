@@ -71,15 +71,27 @@ export interface UpdateRoomPriceRequest{
 export interface RoomSearchParams {
   keyword?: string;
   locationId?: number;
+
+  // Retained for admin/internal callers; hidden from the user portal.
   roomTypeId?: number;
+
   status?: RoomStatus;
   minCapacity?: number;
   maxCapacity?: number;
+
+  // Backward-compatible single amenity filter.
   amenityId?: number;
+
+  // New user-facing search filters supported by the extended backend.
+  amenityIds?: number[];
+  floors?: string[];
+  minHourlyPrice?: number;
+  maxHourlyPrice?: number;
+  effectiveDate?: string;
+
   page?: number;
   size?: number;
   sort?: string;
-
 }
 
 export interface PageResponse<T> {

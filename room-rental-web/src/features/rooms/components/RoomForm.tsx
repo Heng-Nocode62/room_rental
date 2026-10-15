@@ -6,6 +6,11 @@ import { Plus, Trash2 } from "../../../components/ui/MaterialIcon.tsx";
 import { Button, Input, Select, Textarea } from "../../../components/ui";
 
 import { useLocationAmenities } from "../hooks/useLocationAmenities";
+import { formatMoney } from "../utils/roomUtils";
+import {
+  RoomTypeQuickCreate,
+  type CreatedRoomType,
+} from "./RoomTypeQuickCreate";
 
 export interface RoomAmenityFormValue {
   amenityId: string;
@@ -27,6 +32,7 @@ export interface RoomFormValues {
 interface Option {
   id: number;
   name: string;
+  capacity?: number;
 }
 
 interface Props {
@@ -36,7 +42,12 @@ interface Props {
   initialValues?: Partial<RoomFormValues>;
   loading?: boolean;
   fixedLocationId?: number;
+  /** Server error message shown above the buttons */
+  error?: string | null;
   onSubmit: (values: RoomFormValues) => Promise<void>;
+  onCancel?: () => void;
+  /** Called after a room type was created from inside this form */
+  onRoomTypeCreated?: (roomType: CreatedRoomType) => void;
 }
 
 export function RoomForm({
@@ -46,7 +57,10 @@ export function RoomForm({
   initialValues,
   loading = false,
   fixedLocationId,
+  error,
   onSubmit,
+  onCancel,
+  onRoomTypeCreated,
 }: Props) {
   const { t } = useTranslation();
 
@@ -80,13 +94,8 @@ export function RoomForm({
   }, [fixedLocationId, setValue]);
 
   useEffect(() => {
-    register("locationId", {
-      required: "Location is required",
-    });
-
-    register("roomTypeId", {
-      required: "Room type is required",
-    });
+    register("locationId", { required: "Location is required" });
+    register("roomTypeId", { required: "Room type is required" });
   }, [register]);
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -95,6 +104,54 @@ export function RoomForm({
   });
 
   const locationId = watch("locationId");
+  const roomTypeId = watch("roomTypeId");
+  const watchedAmenities = watch("amenities");
+
+  const locationName =
+    locations.find((location) => location.id === Number(locationId))?.name ??
+    "";
+
+  /* ---------------------------------------------------------------------- */
+  /* Room types (including the ones created from this form)                  */
+  /* ---------------------------------------------------------------------- */
+
+  const [createdTypes, setCreatedTypes] = useState<Option[]>([]);
+  const [creatingType, setCreatingType] = useState(false);
+  const [typeNotice, setTypeNotice] = useState<{
+    kind: "success" | "warning";
+    message: string;
+  } | null>(null);
+
+  const allRoomTypes = useMemo(() => {
+    const known = new Set(roomTypes.map((type) => type.id));
+
+    return [
+      ...roomTypes,
+      ...createdTypes.filter((type) => !known.has(type.id)),
+    ];
+  }, [roomTypes, createdTypes]);
+
+  const handleTypeCreated = (created: CreatedRoomType, warning?: string) => {
+    setCreatedTypes((current) => [
+      ...current,
+      { id: created.id, name: created.name },
+    ]);
+
+    setValue("roomTypeId", String(created.id), {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+
+    setTypeNotice(
+      warning
+        ? { kind: "warning", message: warning }
+        : { kind: "success", message: `Room type “${created.name}” created and selected.` },
+    );
+
+    onRoomTypeCreated?.(created);
+    setCreatingType(false);
+  };
+
 
   const { data: amenities = [], isLoading: amenitiesLoading } =
     useLocationAmenities(
@@ -115,6 +172,10 @@ export function RoomForm({
     [amenities, selectedIds],
   );
 
+  const amenityBeingAdded = amenities.find(
+    (item) => item.id === Number(amenityToAdd),
+  );
+
   useEffect(() => {
     if (mode !== "create") return;
 
@@ -124,15 +185,11 @@ export function RoomForm({
   }, [locationId, mode, replace]);
 
   const addAmenity = () => {
-    const amenityId = Number(amenityToAdd);
-    const amenity = amenities.find((item) => item.id === amenityId);
-
-    if (!amenity || amountToAdd < 1) return;
-
-    if (amountToAdd > amenity.stockQuantity) return;
+    if (!amenityBeingAdded || amountToAdd < 1) return;
+    if (amountToAdd > amenityBeingAdded.stockQuantity) return;
 
     append({
-      amenityId: String(amenity.id),
+      amenityId: String(amenityBeingAdded.id),
       amount: amountToAdd,
     });
 
@@ -140,256 +197,409 @@ export function RoomForm({
     setAmountToAdd(1);
   };
 
+  const amenitiesTotal = (watchedAmenities ?? []).reduce((total, item) => {
+    const amenity = amenities.find((a) => a.id === Number(item.amenityId));
+    return total + (amenity ? amenity.price * (Number(item.amount) || 0) : 0);
+  }, 0);
+
+
+  const canCreateType = mode === "create" && Boolean(locationId);
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        {!fixedLocationId ? (
-          <Select
-            id="room-location"
-            label="Location"
-            requiredMark
-            value={watch("locationId")}
-            disabled={mode === "edit"}
-            onChange={(event) =>
-              setValue("locationId", event.target.value, {
-                shouldValidate: true,
-                shouldDirty: true,
-              })
-            }
-            error={errors.locationId?.message}
-            options={[
-              { value: "", label: "Select location" },
-              ...locations.map((location) => ({
-                value: String(location.id),
-                label: location.name,
-              })),
-            ]}
-          />
-        ) : (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <p className="text-xs font-medium text-slate-500">Location</p>
-            <p className="mt-0.5 text-sm font-medium text-slate-800">
-              {locations.find((location) => location.id === fixedLocationId)
-                ?.name ?? `#${fixedLocationId}`}
-            </p>
-          </div>
-        )}
+    <>
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className={creatingType ? "hidden" : "space-y-8"}
+        noValidate
+      >
+        {/* 1 — Location & type */}
+        <Section step={1} title="Location & type">
+          <div className="grid gap-4 sm:grid-cols-2">
+            {!fixedLocationId ? (
+              <Select
+                id="room-location"
+                label="Location"
+                requiredMark
+                value={locationId}
+                disabled={mode === "edit"}
+                onChange={(event) =>
+                  setValue("locationId", event.target.value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                error={errors.locationId?.message}
+                options={[
+                  { value: "", label: "Select location" },
+                  ...locations.map((location) => ({
+                    value: String(location.id),
+                    label: location.name,
+                  })),
+                ]}
+              />
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p className="text-xs font-medium text-slate-500">Location</p>
+                <p className="mt-0.5 text-sm font-medium text-slate-800">
+                  {locationName || `#${fixedLocationId}`}
+                </p>
+              </div>
+            )}
 
-        <Select
-          id="room-type"
-          label="Room type"
-          requiredMark
-          value={watch("roomTypeId")}
-          disabled={mode === "edit"}
-          onChange={(event) =>
-            setValue("roomTypeId", event.target.value, {
-              shouldValidate: true,
-              shouldDirty: true,
-            })
-          }
-          error={errors.roomTypeId?.message}
-          options={[
-            { value: "", label: "Select room type" },
-            ...roomTypes.map((type) => ({
-              value: String(type.id),
-              label: type.name,
-            })),
-          ]}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Room number"
-          requiredMark
-          disabled={mode === "edit"}
-          placeholder="M-101"
-          error={errors.roomNumber?.message}
-          {...register("roomNumber", {
-            required: "Room number is required",
-          })}
-        />
-
-        <Input
-          label="Room name"
-          requiredMark
-          placeholder="Main Meeting Room"
-          error={errors.name?.message}
-          {...register("name", {
-            required: "Room name is required",
-          })}
-        />
-      </div>
-
-      <Input label="Floor" placeholder="2" {...register("floor")} />
-      <div className="flex gap-4">
-        <Input
-          label="Hourly Price"
-          type="number"
-          min={0}
-          step="0.01"
-          error={errors.hourlyPrice?.message}
-          placeholder="10.00"
-          {...register("hourlyPrice", {
-            setValueAs: (v) => (v === "" ? null : Number(v)),
-            min: { value: 0, message: "Price cannot be negative" },
-            required:"Hourly price is required"
-          })}
-        />
-        <Input
-          label="Daily Price"
-          type="number"
-          min={0}
-          step={0.1}
-          error={errors.dailyPrice?.message}
-          placeholder="10.00"
-          {...register("dailyPrice", {
-            setValueAs: (v) => (v === "" ? null : Number(v)),
-            min: { value: 0, message: "Price cannot be negative" },
-            required:"DailyPrice is required"
-          })}
-        />
-      </div>
-
-      <Textarea
-        label="Description"
-        placeholder="Describe this room..."
-        {...register("description")}
-      />
-
-      {mode === "create" && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-          <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-slate-900">Amenities</p>
-              <p className="mt-1 text-xs text-slate-500">
-                Optional. Amenities must belong to the selected location.
-              </p>
+              <Select
+                id="room-type"
+                label="Room type"
+                requiredMark
+                value={roomTypeId}
+                disabled={mode === "edit"}
+                onChange={(event) => {
+                  setTypeNotice(null);
+                  setValue("roomTypeId", event.target.value, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                }}
+                error={errors.roomTypeId?.message}
+                options={[
+                  { value: "", label: "Select room type" },
+                  ...allRoomTypes.map((type) => ({
+                    value: String(type.id),
+                    label: `${type.name} ( ${type.capacity} people)`,
+                  })),
+                ]}
+              />
+
+              {mode === "create" && (
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <p className="text-xs text-slate-500">
+                    {canCreateType
+                      ? "Can't find the type you need?"
+                      : "Select a location to create a type."}
+                  </p>
+
+                  <button
+                    type="button"
+                    disabled={!canCreateType}
+                    onClick={() => {
+                      setTypeNotice(null);
+                      setCreatingType(true);
+                    }}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+                  >
+                    <Plus size={14} />
+                    New room type
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {!locationId ? (
-            <p className="mt-4 text-sm text-slate-400">
-              Select a location first to choose amenities.
+          {typeNotice && (
+            <p
+              role="status"
+              className={[
+                "rounded-lg px-3 py-2 text-xs",
+                typeNotice.kind === "success"
+                  ? "bg-emerald-50 text-emerald-800"
+                  : "bg-amber-50 text-amber-800",
+              ].join(" ")}
+            >
+              {typeNotice.message}
             </p>
-          ) : (
-            <>
-              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px_auto]">
-                <Select
-                  label="Amenity"
-                  value={amenityToAdd}
-                  disabled={amenitiesLoading || availableAmenities.length === 0}
-                  onChange={(event) => setAmenityToAdd(event.target.value)}
-                  options={[
-                    {
-                      value: "",
-                      label: amenitiesLoading
-                        ? "Loading amenities..."
-                        : availableAmenities.length === 0
-                          ? "No available amenities"
-                          : "Select amenity",
-                    },
-                    ...availableAmenities.map((amenity) => ({
-                      value: String(amenity.id),
-                      label: `${amenity.name} · ${amenity.price.toFixed(2)} · stock ${amenity.stockQuantity}`,
-                    })),
-                  ]}
-                />
+          )}
+        </Section>
 
-                <Input
-                  label="Amount"
-                  type="number"
-                  min={1}
-                  max={
-                    amenities.find((item) => item.id === Number(amenityToAdd))
-                      ?.stockQuantity ?? undefined
-                  }
-                  value={amountToAdd}
-                  onChange={(event) =>
-                    setAmountToAdd(Math.max(1, Number(event.target.value) || 1))
-                  }
-                />
+        {/* 2 — Details */}
+        <Section step={2} title="Room details">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Room number"
+              requiredMark
+              disabled={mode === "edit"}
+              placeholder="M-101"
+              error={errors.roomNumber?.message}
+              {...register("roomNumber", {
+                required: "Room number is required",
+              })}
+            />
 
-                <div className="flex items-end">
+            <Input
+              label="Room name"
+              requiredMark
+              placeholder="Main Meeting Room"
+              error={errors.name?.message}
+              {...register("name", { required: "Room name is required" })}
+            />
+          </div>
+
+          <Input
+            label="Floor"
+            placeholder="e.g. 2"
+            requiredMark
+            error={errors.floor?.message}
+            {...register("floor", { required: "Floor is required" })}
+          />
+
+          <Textarea
+            label="Description"
+            placeholder="Describe this room..."
+            {...register("description")}
+          />
+        </Section>
+
+        {/* 3 — Pricing */}
+        <Section step={3} title="Pricing" hint="Prices in USD.">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Hourly price ($ / hour)"
+              requiredMark
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="10.00"
+              error={errors.hourlyPrice?.message}
+              {...register("hourlyPrice", {
+                setValueAs: (v) => (v === "" ? null : Number(v)),
+                min: { value: 0, message: "Price cannot be negative" },
+                required: "Hourly price is required",
+              })}
+            />
+
+            <Input
+              label="Daily price ($ / day)"
+              requiredMark
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="80.00"
+              error={errors.dailyPrice?.message}
+              {...register("dailyPrice", {
+                setValueAs: (v) => (v === "" ? null : Number(v)),
+                min: { value: 0, message: "Price cannot be negative" },
+                required: "Daily price is required",
+              })}
+            />
+          </div>
+        </Section>
+
+        {/* 4 — Amenities (create only) */}
+        {mode === "create" && (
+          <Section
+            step={4}
+            title="Amenities"
+            hint="Optional. Taken from the selected location's stock."
+          >
+            {!locationId ? (
+              <p className="rounded-xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm text-slate-400">
+                Select a location first to choose amenities.
+              </p>
+            ) : (
+              <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                <div className="grid gap-3 sm:grid-cols-[1fr_110px_auto] sm:items-end">
+                  <Select
+                    label="Amenity"
+                    value={amenityToAdd}
+                    disabled={
+                      amenitiesLoading || availableAmenities.length === 0
+                    }
+                    onChange={(event) => {
+                      setAmenityToAdd(event.target.value);
+                      setAmountToAdd(1);
+                    }}
+                    options={[
+                      {
+                        value: "",
+                        label: amenitiesLoading
+                          ? "Loading amenities..."
+                          : availableAmenities.length === 0
+                            ? "No available amenities"
+                            : "Select amenity",
+                      },
+                      ...availableAmenities.map((amenity) => ({
+                        value: String(amenity.id),
+                        label: `${amenity.name} · $${formatMoney(amenity.price)} · stock ${amenity.stockQuantity}`,
+                      })),
+                    ]}
+                  />
+
+                  <Input
+                    label="Amount"
+                    type="number"
+                    min={1}
+                    max={amenityBeingAdded?.stockQuantity ?? undefined}
+                    value={amountToAdd}
+                    onChange={(event) =>
+                      setAmountToAdd(
+                        Math.max(1, Number(event.target.value) || 1),
+                      )
+                    }
+                  />
+
                   <Button
                     type="button"
                     variant="secondary"
                     leftIcon={<Plus size={16} />}
-                    disabled={!amenityToAdd}
+                    disabled={
+                      !amenityBeingAdded ||
+                      amountToAdd > amenityBeingAdded.stockQuantity
+                    }
                     onClick={addAmenity}
                   >
                     Add
                   </Button>
                 </div>
-              </div>
 
-              {fields.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {fields.map((field, index) => {
-                    const amenity = amenities.find(
-                      (item) => item.id === Number(field.amenityId),
-                    );
+                {amenityBeingAdded &&
+                  amountToAdd > amenityBeingAdded.stockQuantity && (
+                    <p className="text-xs text-red-600">
+                      Maximum available stock is{" "}
+                      {amenityBeingAdded.stockQuantity}.
+                    </p>
+                  )}
 
-                    return (
-                      <div
-                        key={field.id}
-                        className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_120px_auto] sm:items-end"
-                      >
-                        <div>
-                          <p className="text-sm font-medium text-slate-800">
-                            {amenity?.name ?? `Amenity #${field.amenityId}`}
-                          </p>
-                          {amenity && (
-                            <p className="mt-1 text-xs text-slate-500">
-                              Price {amenity.price.toFixed(2)} · Available stock{" "}
-                              {amenity.stockQuantity}
-                            </p>
-                          )}
-                        </div>
+                {fields.length > 0 && (
+                  <div className="space-y-2">
+                    {fields.map((field, index) => {
+                      const amenity = amenities.find(
+                        (item) => item.id === Number(field.amenityId),
+                      );
 
-                        <Input
-                          label="Amount"
-                          type="number"
-                          min={1}
-                          max={amenity?.stockQuantity ?? undefined}
-                          error={errors.amenities?.[index]?.amount?.message}
-                          {...register(`amenities.${index}.amount`, {
-                            valueAsNumber: true,
-                            required: "Amount is required",
-                            min: {
-                              value: 1,
-                              message: "Amount must be at least 1",
-                            },
-                            validate: (value) =>
-                              !amenity ||
-                              value <= amenity.stockQuantity ||
-                              `Maximum available stock is ${amenity.stockQuantity}`,
-                          })}
-                        />
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          aria-label={`Remove ${amenity?.name ?? "amenity"}`}
-                          onClick={() => remove(index)}
+                      return (
+                        <div
+                          key={field.id}
+                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_110px_auto] sm:items-end"
                         >
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-slate-800">
+                              {amenity?.name ?? `Amenity #${field.amenityId}`}
+                            </p>
 
-      <div className="flex justify-end">
-        <Button type="submit" loading={loading}>
-          {mode === "create" ? t("room.button.create") : t("room.button.save")}
-        </Button>
+                            {amenity && (
+                              <p className="mt-1 text-xs text-slate-500">
+                                ${formatMoney(amenity.price)} each · stock{" "}
+                                {amenity.stockQuantity}
+                              </p>
+                            )}
+                          </div>
+
+                          <Input
+                            label="Amount"
+                            placeholder=" "
+                            type="number"
+                            min={1}
+                            max={amenity?.stockQuantity ?? undefined}
+                            error={errors.amenities?.[index]?.amount?.message}
+                            {...register(`amenities.${index}.amount`, {
+                              valueAsNumber: true,
+                              required: "Amount is required",
+                              min: {
+                                value: 1,
+                                message: "Amount must be at least 1",
+                              },
+                              validate: (value) =>
+                                !amenity ||
+                                value <= amenity.stockQuantity ||
+                                `Maximum available stock is ${amenity.stockQuantity}`,
+                            })}
+                          />
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            aria-label={`Remove ${amenity?.name ?? "amenity"}`}
+                            onClick={() => remove(index)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      );
+                    })}
+
+                    <div className="flex items-center justify-between px-1 pt-1 text-xs text-slate-500">
+                      <span>
+                        {fields.length}{" "}
+                        {fields.length === 1 ? "amenity" : "amenities"} selected
+                      </span>
+                      <span className="font-semibold text-slate-800">
+                        Value ${formatMoney(amenitiesTotal)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </Section>
+        )}
+
+        {error && (
+          <p
+            role="alert"
+            className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onCancel}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+          )}
+
+          <Button type="submit" loading={loading}>
+            {mode === "create"
+              ? t("room.button.create", "Create room")
+              : t("room.button.save", "Save changes")}
+          </Button>
+        </div>
+      </form>
+
+      {creatingType && (
+        <RoomTypeQuickCreate
+          locationId={Number(locationId)}
+          locationName={locationName || `#${locationId}`}
+          onCancel={() => setCreatingType(false)}
+          onCreated={handleTypeCreated}
+        />
+      )}
+    </>
+  );
+}
+
+function Section({
+  step,
+  title,
+  hint,
+  children,
+}: {
+  step: number;
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white"
+        >
+          {step}
+        </span>
+
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+
+        {hint && <span className="text-xs text-slate-400">{hint}</span>}
       </div>
-    </form>
+
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }

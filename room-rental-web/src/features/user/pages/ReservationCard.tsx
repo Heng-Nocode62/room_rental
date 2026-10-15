@@ -1,6 +1,4 @@
 import { DateTime } from "luxon";
-import { Link } from "react-router-dom";
-
 import type { ReservationResponse } from "../../reservations/types/reservation";
 import { Card, Icon, StatusBadge, Button } from "../components/UserUI";
 

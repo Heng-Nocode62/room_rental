@@ -41,6 +41,7 @@ export interface CreateUserRequest {
 
   email?: string;
   phone?: string;
+  roleId: number
 }
 
 export interface UpdateUserRequest {

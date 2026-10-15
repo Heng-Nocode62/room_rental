@@ -1,4 +1,3 @@
-// src/features/availability/types/availability.ts
 
 export type SlotStatus =
   | "AVAILABLE"

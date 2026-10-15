@@ -2,25 +2,28 @@ import { Badge } from "../../../components/ui";
 
 import type { UserStatus } from "../types/user";
 
+type Variant = "success" | "warning" | "danger" | "neutral";
+
+const VARIANTS: Record<string, Variant> = {
+  ACTIVE: "success",
+  PENDING: "warning",
+  LOCKED: "warning",
+  INACTIVE: "neutral",
+  DEACTIVATED: "danger",
+};
+
+const LABELS: Record<string, string> = {
+  ACTIVE: "Active",
+  PENDING: "Pending",
+  LOCKED: "Locked",
+  INACTIVE: "Inactive",
+  DEACTIVATED: "Deactivated",
+};
+
 export function UserStatusBadge({ status }: { status: UserStatus }) {
-  let variant: "success" | "warning" | "danger" | "neutral";
+  const key = String(status);
 
-  switch (status) {
-    case "ACTIVE":
-      variant = "success";
-      break;
-
-    case "LOCKED":
-      variant = "warning";
-      break;
-
-    case "INACTIVE":
-      variant = "neutral";
-      break;
-
-    default:
-      variant = "neutral";
-  }
-
-  return <Badge variant={variant}>{status}</Badge>;
+  return (
+    <Badge variant={VARIANTS[key] ?? "neutral"}>{LABELS[key] ?? key}</Badge>
+  );
 }

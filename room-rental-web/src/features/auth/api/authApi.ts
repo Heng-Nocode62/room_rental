@@ -1,3 +1,4 @@
+
 import { api } from "../../../lib/axios";
 import type {
   AuthUser,
@@ -7,6 +8,10 @@ import type {
   RegisterResponse,
   ResendOtpRequest,
   VerifyEmailRequest,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  UpdateMyProfileRequest,
+  ChangeMyPasswordRequest,
 } from "../types/auth";
 
 export const authApi = {
@@ -45,7 +50,33 @@ export const authApi = {
   },
 
   async loginWithGoogle(credential: string): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>("/auth/google", { credential });
+    const response = await api.post<LoginResponse>("/auth/google", {
+      credential,
+    });
     return response.data;
+  },
+
+  async requestPasswordReset(
+    request: ForgotPasswordRequest,
+  ): Promise<void> {
+    await api.post<void>("/auth/forgot-password", request);
+  },
+
+  async resetPassword(
+    request: ResetPasswordRequest,
+  ): Promise<void> {
+    await api.post<void>("/auth/reset-password", request);
+  },
+
+  async updateMyProfile(
+    request: UpdateMyProfileRequest,
+  ): Promise<void> {
+    await api.put<void>("/auth/me/profile", request);
+  },
+
+  async changeMyPassword(
+    request: ChangeMyPasswordRequest,
+  ): Promise<void> {
+    await api.put<void>("/auth/change-password", request);
   },
 };

@@ -20,6 +20,13 @@ export const roomTypeApi = {
 
     return response.data;
   },
+  async getByLocationId(id: number): Promise<RoomTypeResponse[]> {
+    const response = await api.get<RoomTypeResponse[]>(
+      `/room-types/location/${id}`,
+    );
+
+    return response.data;
+  },
 
   async create(
     request: CreateRoomTypeRequest,

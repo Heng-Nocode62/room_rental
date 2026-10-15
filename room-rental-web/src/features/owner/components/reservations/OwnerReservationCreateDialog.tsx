@@ -141,41 +141,20 @@ function FormSection({
   );
 }
 
-/*
- * -------------------------------------------------------
- * COMPONENT
- * -------------------------------------------------------
- */
-
 export function OwnerReservationCreateDialog({
   open,
   onClose,
   initialState,
   onCreated,
 }: Props) {
-  /*
-   * -------------------------------------------------------
-   * PRICE CALCULATION
-   * -------------------------------------------------------
-   */
+
 
   const priceCalculation = useCalculatePrice();
-
-  /*
-   * -------------------------------------------------------
-   * MASTER DATA
-   * -------------------------------------------------------
-   */
 
   const { data: locations = [] } = useLocations();
 
   const { data: roomTypes = [] } = useRoomTypes();
 
-  /*
-   * -------------------------------------------------------
-   * FORM STATE
-   * -------------------------------------------------------
-   */
 
   const [locationId, setLocationId] = useState("");
 
@@ -183,20 +162,7 @@ export function OwnerReservationCreateDialog({
 
   const [roomId, setRoomId] = useState("");
 
-  /*
-   * -------------------------------------------------------
-   * DATE STATE
-   * -------------------------------------------------------
-   *
-   * date:
-   *     Current editable start date
-   *
-   * endDate:
-   *     Current editable end date
-   *
-   * The availability calendar only provides
-   * the initial values.
-   */
+
 
   const today = DateTime.now().toISODate()!;
 
@@ -222,22 +188,9 @@ export function OwnerReservationCreateDialog({
     notes: "",
   });
 
-  /*
-   * -------------------------------------------------------
-   * OPEN STATE TRACKING
-   * -------------------------------------------------------
-   *
-   * This prevents the dialog from continuously
-   * re-applying initialState while the user edits.
-   */
 
   const previousOpenRef = useRef(false);
 
-  /*
-   * -------------------------------------------------------
-   * ROOMS
-   * -------------------------------------------------------
-   */
 
   const roomsQuery = useRooms({
     locationId: locationId ? Number(locationId) : undefined,
@@ -262,11 +215,6 @@ export function OwnerReservationCreateDialog({
     !roomsQuery.isLoading &&
     (roomsQuery.data?.content.length ?? 0) === 0;
 
-  /*
-   * -------------------------------------------------------
-   * LOCATION / TIMEZONE
-   * -------------------------------------------------------
-   */
 
   const selectedLocation = locations.find(
     (location: any) => location.id === Number(locationId),
@@ -274,21 +222,11 @@ export function OwnerReservationCreateDialog({
 
   const timezone = selectedLocation?.timeZone ?? "Asia/Phnom_Penh";
 
-  /*
-   * -------------------------------------------------------
-   * OPERATING HOURS
-   * -------------------------------------------------------
-   */
 
   const { data: hours = [] } = useOperatingHours(
     locationId ? Number(locationId) : 0,
   );
 
-  /*
-   * -------------------------------------------------------
-   * AMENITIES
-   * -------------------------------------------------------
-   */
 
   const amenitiesQuery = useAmenities({
     locationId: locationId ? Number(locationId) : undefined,
@@ -308,16 +246,7 @@ export function OwnerReservationCreateDialog({
     [amenitiesQuery.data],
   );
 
-  /*
-   * IMPORTANT:
-   *
-   * The hook itself should use `enabled`
-   * to avoid requesting:
-   *
-   * /locations/0/operating-hours
-   *
-   * I'll show that fix after this file.
-   */
+
 
   const selectedHours = useMemo(
     () =>
@@ -343,11 +272,6 @@ export function OwnerReservationCreateDialog({
     [hours, endDate],
   );
 
-  /*
-   * -------------------------------------------------------
-   * HOURLY TIME SLOTS
-   * -------------------------------------------------------
-   */
 
   const slots = useMemo(
     () =>
@@ -357,11 +281,6 @@ export function OwnerReservationCreateDialog({
     [selectedHours],
   );
 
-  /*
-   * -------------------------------------------------------
-   * ROOM PRICES
-   * -------------------------------------------------------
-   */
 
   const prices = useQuery({
     queryKey: ["reservation-room-price", selectedRoom?.id, date],
@@ -402,11 +321,6 @@ export function OwnerReservationCreateDialog({
 
   const isDaily = selectedPricing?.pricingUnitCode === "DAILY";
 
-  /*
-   * -------------------------------------------------------
-   * DEFAULT PRICING UNIT
-   * -------------------------------------------------------
-   */
 
   useEffect(() => {
     if (!open) {
@@ -465,20 +379,8 @@ export function OwnerReservationCreateDialog({
     initialState?.preferredPricingUnitCode,
   ]);
 
-  /*
-   * -------------------------------------------------------
-   * CREATE / STATUS
-   * -------------------------------------------------------
-   */
-
   const create = useCreateReservation();
 
-
-  /*
-   * -------------------------------------------------------
-   * INITIALIZE FORM ONLY WHEN DIALOG OPENS
-   * -------------------------------------------------------
-   */
 
   useEffect(() => {
     const justOpened = open && !previousOpenRef.current;
@@ -493,64 +395,33 @@ export function OwnerReservationCreateDialog({
 
     const initialEndDate = initialState?.endDate ?? initialStartDate;
 
-    /*
-     * LOCATION
-     */
-
     setLocationId(
       initialState?.locationId ? String(initialState.locationId) : "",
     );
 
-    /*
-     * ROOM TYPE
-     */
+
 
     setRoomTypeId(
       initialState?.roomTypeId ? String(initialState.roomTypeId) : "",
     );
 
-    /*
-     * ROOM
-     */
 
     setRoomId(initialState?.roomId ? String(initialState.roomId) : "");
 
-    /*
-     * START DATE
-     *
-     * Only a default.
-     */
+
 
     setDate(initialStartDate);
-
-    /*
-     * END DATE
-     *
-     * Only a default.
-     */
-
     setEndDate(
       initialEndDate < initialStartDate ? initialStartDate : initialEndDate,
     );
 
-    /*
-     * HOURLY TIME
-     */
 
     setStartTime(initialState?.startTime ? asHour(initialState.startTime) : "");
 
     setEndTime(initialState?.endTime ? asHour(initialState.endTime) : "");
 
-    /*
-     * PRICING
-     */
-
     setPricingUnitId(null);
     setReservationAmenities([]);
-
-    /*
-     * CONTACT
-     */
 
     setPurpose({
       purpose: "",
@@ -563,11 +434,6 @@ export function OwnerReservationCreateDialog({
     priceCalculation.reset();
   }, [open, initialState]);
 
-  /*
-   * -------------------------------------------------------
-   * INVALID HOURLY TIME RESET
-   * -------------------------------------------------------
-   */
 
   useEffect(() => {
     if (!roomId) {
@@ -583,11 +449,6 @@ export function OwnerReservationCreateDialog({
     }
   }, [roomId, date, selectedHours, slots, startTime, endTime]);
 
-  /*
-   * -------------------------------------------------------
-   * VALIDATION
-   * -------------------------------------------------------
-   */
 
   const hourlyValid =
     !!date &&
@@ -611,10 +472,6 @@ export function OwnerReservationCreateDialog({
     !!purpose.contactName.trim() &&
     (isHourly ? hourlyValid : isDaily ? dailyValid : false);
 
-  /*
-   * A plain-language reason the submit button is disabled, shown next to
-   * it instead of leaving the person to guess what's missing.
-   */
   const blockingReason = (() => {
     if (!locationId) return "Choose a location to get started.";
     if (!selectedRoom) return "Select a room.";
@@ -632,12 +489,6 @@ export function OwnerReservationCreateDialog({
     return null;
   })();
 
-  /*
-   * -------------------------------------------------------
-   * BUILD RESERVATION PERIOD
-   * -------------------------------------------------------
-   */
-
   const buildReservationPeriod = () => {
     if (!selectedRoom || !selectedPricing) {
       return null;
@@ -647,11 +498,6 @@ export function OwnerReservationCreateDialog({
 
     let endAt: string;
 
-    /*
-     * ---------------------------------------------------
-     * HOURLY
-     * ---------------------------------------------------
-     */
 
     if (isHourly) {
       const error = validateReservationTime(
@@ -670,12 +516,6 @@ export function OwnerReservationCreateDialog({
 
       endAt = combineLocalDateAndTime(date, endTime, timezone);
     } else if (isDaily) {
-
-    /*
-     * ---------------------------------------------------
-     * DAILY
-     * ---------------------------------------------------
-     */
       if (!dailyStartHours || !dailyEndHours) {
         return null;
       }
@@ -689,12 +529,6 @@ export function OwnerReservationCreateDialog({
         return null;
       }
 
-      /*
-       * IMPORTANT:
-       *
-       * These are the CURRENT
-       * editable form values.
-       */
 
       startAt = combineLocalDateAndTime(date, dailyStartTime, timezone);
 
@@ -709,11 +543,6 @@ export function OwnerReservationCreateDialog({
     };
   };
 
-  /*
-   * -------------------------------------------------------
-   * CALCULATE PRICE
-   * -------------------------------------------------------
-   */
 
   useEffect(() => {
     if (!open) {
@@ -764,12 +593,6 @@ export function OwnerReservationCreateDialog({
     dailyEndHours?.closeTime,
   ]);
 
-  /*
-   * -------------------------------------------------------
-   * SUBMIT
-   * -------------------------------------------------------
-   */
-
   const submit = async () => {
     if (!selectedRoom || !selectedPricing) {
       return;
@@ -781,9 +604,6 @@ export function OwnerReservationCreateDialog({
       return;
     }
 
-    /*
-     * CREATE
-     */
 
     const created = await create.mutateAsync({
       roomId: selectedRoom.id,
@@ -812,11 +632,6 @@ export function OwnerReservationCreateDialog({
     onClose();
   };
 
-  /*
-   * -------------------------------------------------------
-   * RESET SELECTION
-   * -------------------------------------------------------
-   */
 
   const resetSelection = () => {
     setLocationId("");
@@ -831,11 +646,6 @@ export function OwnerReservationCreateDialog({
     priceCalculation.reset();
   };
 
-  /*
-   * -------------------------------------------------------
-   * RENDER
-   * -------------------------------------------------------
-   */
 
   return (
     <Modal
@@ -846,17 +656,12 @@ export function OwnerReservationCreateDialog({
       size="xl"
     >
       <div className="space-y-8 scrollbar-custom">
-        {/* ------------------------------------------------ */}
-        {/* 1. LOCATION / ROOM TYPE / ROOM */}
-        {/* ------------------------------------------------ */}
-
         <FormSection
           step={1}
           title="Room"
           description="Filter by location and room type, then pick a room."
         >
           <div className="grid gap-4 md:grid-cols-3">
-            {/* LOCATION */}
 
             <Select
               id="reservation-location"
@@ -887,7 +692,6 @@ export function OwnerReservationCreateDialog({
               ]}
             />
 
-            {/* ROOM TYPE */}
 
             <Select
               id="reservation-type"
@@ -916,8 +720,6 @@ export function OwnerReservationCreateDialog({
                   })),
               ]}
             />
-
-            {/* ROOM */}
 
             <Select
               id="reservation-room"
@@ -949,8 +751,6 @@ export function OwnerReservationCreateDialog({
             />
           </div>
 
-          {/* EMPTY STATE: no rooms match the current filters */}
-
           {noRoomsAvailable && (
             <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
               No active rooms match this location
@@ -959,58 +759,7 @@ export function OwnerReservationCreateDialog({
             </p>
           )}
 
-          {/* SELECTED ROOM SUMMARY */}
-
-          {/* {selectedRoom && (
-            <div className="flex items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm">
-                  <DoorOpen size={17} />
-                </div>
-
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    {selectedRoom.roomNumber}
-
-                    {" · "}
-
-                    {selectedRoom.name}
-                  </p>
-
-                  <p className="text-xs text-slate-500">
-                    {selectedRoom.locationName}
-
-                    {" · "}
-
-                    {selectedRoom.roomTypeName}
-
-                    {" · capacity "}
-
-                    {selectedRoom.capacity}
-                  </p>
-                </div>
-              </div>
-
-              {selectedPricing && (
-                <div className="text-right">
-                  <p className="text-xs text-slate-500">
-                    {selectedPricing.pricingUnitName}
-                  </p>
-
-                  <p className="font-semibold text-indigo-700">
-                    {selectedPricing.price.toFixed(2)}{" "}
-                    {selectedPricing.currencyCode}
-                  </p>
-                </div>
-              )}
-            </div>
-          )} */}
         </FormSection>
-
-        {/* ------------------------------------------------ */}
-        {/* 2. PRICING TYPE */}
-        {/* ------------------------------------------------ */}
-
         {selectedRoom && availablePrices.length > 0 && (
           <FormSection
             step={2}
@@ -1035,10 +784,6 @@ export function OwnerReservationCreateDialog({
             before it can be reserved.
           </p>
         )}
-
-        {/* ------------------------------------------------ */}
-        {/* 3. SCHEDULE (hourly or daily) */}
-        {/* ------------------------------------------------ */}
 
         {(isHourly || isDaily) && (
           <FormSection
@@ -1065,19 +810,10 @@ export function OwnerReservationCreateDialog({
                   onChange={(event) => {
                     const value = event.target.value;
 
-                    /*
-                     * Hourly reservation always
-                     * happens on one date.
-                     */
 
                     setDate(value);
 
                     setEndDate(value);
-
-                    /*
-                     * Changing date invalidates
-                     * the old time selections.
-                     */
 
                     setStartTime("");
 
@@ -1110,9 +846,6 @@ export function OwnerReservationCreateDialog({
                     })),
                   ]}
                 />
-
-                {/* END TIME */}
-
                 <Select
                   label="End time"
                   value={endTime}
@@ -1139,11 +872,8 @@ export function OwnerReservationCreateDialog({
               </div>
             )}
 
-            {/* DAILY */}
-
             {isDaily && (
               <div className="grid gap-4 md:grid-cols-2">
-                {/* START DATE */}
 
                 <Input
                   label="Start date"
@@ -1154,21 +884,8 @@ export function OwnerReservationCreateDialog({
                   onChange={(event) => {
                     const newStartDate = event.target.value;
 
-                    /*
-                     * THIS IS FULLY EDITABLE.
-                     *
-                     * The calendar date was only
-                     * the initial value.
-                     */
-
                     setDate(newStartDate);
 
-                    /*
-                     * If the current end date becomes
-                     * invalid, move it forward.
-                     *
-                     * Otherwise leave it alone.
-                     */
 
                     if (!endDate || endDate < newStartDate) {
                       setEndDate(newStartDate);
@@ -1178,8 +895,6 @@ export function OwnerReservationCreateDialog({
                   }}
                 />
 
-                {/* END DATE */}
-
                 <Input
                   label="End date"
                   type="date"
@@ -1187,10 +902,6 @@ export function OwnerReservationCreateDialog({
                   value={endDate}
                   min={date}
                   onChange={(event) => {
-                    /*
-                     * Fully editable.
-                     */
-
                     setEndDate(event.target.value);
 
                     priceCalculation.reset();
@@ -1198,8 +909,6 @@ export function OwnerReservationCreateDialog({
                 />
               </div>
             )}
-
-            {/* OPERATING HOURS / SCHEDULE FEEDBACK */}
 
             <div className="mt-3 space-y-2">
               {/* HOURLY */}
@@ -1247,10 +956,6 @@ export function OwnerReservationCreateDialog({
           </FormSection>
         )}
 
-        {/* ------------------------------------------------ */}
-        {/* 4. AMENITIES */}
-        {/* ------------------------------------------------ */}
-
         {locationId && (
           <FormSection
             step={4}
@@ -1265,11 +970,6 @@ export function OwnerReservationCreateDialog({
             />
           </FormSection>
         )}
-
-        {/* ------------------------------------------------ */}
-        {/* 5. CONTACT INFORMATION */}
-        {/* ------------------------------------------------ */}
-
         <FormSection
           step={5}
           title="Contact details"
@@ -1277,11 +977,6 @@ export function OwnerReservationCreateDialog({
         >
           <ContactInformationForm values={purpose} onChange={setPurpose} />
         </FormSection>
-
-        {/* ------------------------------------------------ */}
-        {/* PRICE + SUBMIT */}
-        {/* ------------------------------------------------ */}
-
         <div className="sticky bottom-0 -mx-6 border-t border-slate-100 bg-white/95 px-6 pt-4 backdrop-blur">
           {/* PRICE LOADING */}
 
@@ -1291,8 +986,6 @@ export function OwnerReservationCreateDialog({
             </div>
           )}
 
-          {/* PRICE ERROR */}
-
           {priceCalculation.isError && (
             <div className="mb-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
               <p className="text-sm text-rose-700">
@@ -1301,8 +994,6 @@ export function OwnerReservationCreateDialog({
               </p>
             </div>
           )}
-
-          {/* PRICE */}
 
           {priceCalculation.data && (
             <div className="mb-3 rounded-xl border border-[#dadce0] bg-slate-50 p-4">

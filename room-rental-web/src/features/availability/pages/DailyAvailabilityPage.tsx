@@ -33,8 +33,8 @@ import { useOptionalLocationScope } from "../../location-scope/LocationScopeProv
 export default function DailyAvailabilityPage() {
 
 
-  const [month, setMonth] = useState(
-    DateTime.now().startOf("month"),
+  const [month, setMonth] = useState<DateTime<true>>(
+    DateTime.now().startOf("month") as DateTime<true>,
   );
 
   const [roomTypeId, setRoomTypeId] = useState<number | "">("");
@@ -120,7 +120,7 @@ export default function DailyAvailabilityPage() {
 
 
   const handleMonthChange = (nextMonth: DateTime) => {
-    setMonth(nextMonth.startOf("month"));
+    setMonth(nextMonth.startOf("month") as DateTime<true>);
   };
 
   const handleToday = () => {

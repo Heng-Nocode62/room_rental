@@ -25,13 +25,17 @@ export default function LoginPage() {
   const location = useLocation();
   const loginMutation = useLogin();
   const googleLoginMutation = useGoogleLogin();
-  const [message] = useState(() => new URLSearchParams(location.search).get("message"));
+  const [message] = useState(() =>
+    new URLSearchParams(location.search).get("message"),
+  );
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormValues>({ defaultValues: { email: "", password: "", remember: true } });
+  } = useForm<LoginFormValues>({
+    defaultValues: { email: "", password: "", remember: true },
+  });
 
   const onSubmit = async ({ email, password }: LoginFormValues) => {
     try {
@@ -58,19 +62,35 @@ export default function LoginPage() {
         footnote: "Secure staff access • Room Rental Management System",
       }}
     >
-      <AuthHeading eyebrow="Welcome back" title="Sign in to your account" text="Use your email and password to continue." />
+      <AuthHeading
+        eyebrow="Welcome back"
+        title="Sign in to your account"
+        text="Use your email and password to continue."
+      />
 
       {message && <Alert type="success">{message}</Alert>}
       {loginMutation.isError && (
         <Alert type="error">
-          {getErrorMessage(loginMutation.error, "Unable to sign in. Please check your email and password.")}
+          {getErrorMessage(
+            loginMutation.error,
+            "Unable to sign in. Please check your email and password.",
+          )}
         </Alert>
       )}
       {googleLoginMutation.isError && (
-        <Alert type="error">{getErrorMessage(googleLoginMutation.error, "Google sign-in failed. Please try again.")}</Alert>
+        <Alert type="error">
+          {getErrorMessage(
+            googleLoginMutation.error,
+            "Google sign-in failed. Please try again.",
+          )}
+        </Alert>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-5" noValidate>
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        className="space-y-4 sm:space-y-5"
+        noValidate
+      >
         <AuthField
           id="email"
           label="Email address"
@@ -85,7 +105,10 @@ export default function LoginPage() {
           error={errors.email?.message}
           {...register("email", {
             required: "Email is required",
-            pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: "Enter a valid email address" },
+            pattern: {
+              value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+              message: "Enter a valid email address",
+            },
           })}
         />
 
@@ -125,10 +148,21 @@ export default function LoginPage() {
 
       <p className="mt-7 text-center text-sm text-slate-500">
         Don't have an account?{" "}
-        <Link to="/register" className="inline-block py-1 font-semibold text-indigo-600 hover:text-indigo-700">
+        <Link
+          to="/register"
+          className="inline-block py-1 font-semibold text-indigo-600 hover:text-indigo-700"
+        >
           Create one
         </Link>
       </p>
+      <div className="-mt-1 flex justify-end">
+        <Link
+          to="/forgot-password"
+          className="py-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+        >
+          Forgot password?
+        </Link>
+      </div>
     </AuthLayout>
   );
 }
