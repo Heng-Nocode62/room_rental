@@ -9,8 +9,8 @@ export interface LocationResponse {
   name: string;
   code: string;
 
-  address?: string;
-  phone?: string;
+  address?: string | null;
+  phone?: string | null;
 
   timeZone: string;
 
@@ -19,6 +19,10 @@ export interface LocationResponse {
 
   status: LocationStatus;
   totalRooms: number;
+
+  imageUrl?: string | null;
+  locationBakongAccountId?: string | null;
+  telegramContact?: string | null;
 }
 
 export interface CreateLocationRequest {
@@ -32,6 +36,9 @@ export interface CreateLocationRequest {
 
   floor: number;
   ownerId: number;
+
+  locationBakongAccountId?: string;
+  telegramContact?: string;
 }
 
 export interface UpdateLocationRequest {
@@ -43,4 +50,7 @@ export interface UpdateLocationRequest {
   timeZone: string;
 
   floor: number;
+
+  locationBakongAccountId?: string;
+  telegramContact?: string;
 }

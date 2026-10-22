@@ -192,7 +192,6 @@ export default function AmenitiesPage() {
       <PageHeader
         icon={<Tag size={19} />}
         title="Amenities"
-        description="Manage location-specific amenities, pricing, and stock."
         actions={
           <Button
             leftIcon={<Plus size={17} />}
@@ -209,9 +208,6 @@ export default function AmenitiesPage() {
             <h2 className="text-sm font-semibold text-slate-900">
               Search & Filters
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Results update automatically as you change the filters.
-            </p>
           </div>
 
           {isFetching && !isLoading && (

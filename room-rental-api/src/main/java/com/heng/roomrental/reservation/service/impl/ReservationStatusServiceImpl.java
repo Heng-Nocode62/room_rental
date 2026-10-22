@@ -2,6 +2,7 @@ package com.heng.roomrental.reservation.service.impl;
 
 import com.heng.roomrental.common.exception.InvalidOperationException;
 import com.heng.roomrental.common.exception.ResourceNotFoundException;
+import com.heng.roomrental.location.security.LocationSecurity;
 import com.heng.roomrental.reservation.dto.ReservationResponse;
 import com.heng.roomrental.reservation.entity.Reservation;
 import com.heng.roomrental.reservation.entity.ReservationStatus;
@@ -10,6 +11,7 @@ import com.heng.roomrental.reservation.repository.ReservationStatusRepository;
 import com.heng.roomrental.reservation.service.ReservationService;
 import com.heng.roomrental.reservation.service.ReservationStatusService;
 import com.heng.roomrental.security.CurrentUserService;
+import com.heng.roomrental.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class ReservationStatusServiceImpl implements ReservationStatusService {
 
     private final ReservationService reservationService;
     private final CurrentUserService currentUserService;
+    private final LocationSecurity locationSecurity;
 
 
 
@@ -36,9 +39,9 @@ public class ReservationStatusServiceImpl implements ReservationStatusService {
     public ReservationResponse confirm(
             Long reservationId
     ) {
-
         Reservation reservation =
                 getReservation(reservationId);
+        locationSecurity.validateOwner(reservation.getRoom().getLocation().getId());
 
         validateTransition(
                 reservation,
@@ -52,7 +55,7 @@ public class ReservationStatusServiceImpl implements ReservationStatusService {
         reservation.setStatus(
                 confirmedStatus
         );
-        reservation.setReservedBy(currentUserService.getCurrentUser());
+        reservation.setConfirmedBy(currentUserService.getCurrentUser());
 
         Reservation saved =
                 reservationRepository.save(
@@ -76,7 +79,10 @@ public class ReservationStatusServiceImpl implements ReservationStatusService {
 
         Reservation reservation =
                 getReservation(reservationId);
-
+        User currentUser = currentUserService.getCurrentUser();
+        if(!reservation.getReservedBy().getId().equals(currentUser.getId())){
+            locationSecurity.validateOwner(reservation.getRoom().getLocation().getId());
+        }
         String currentStatus =
                 reservation.getStatus().getCode();
 
@@ -97,7 +103,7 @@ public class ReservationStatusServiceImpl implements ReservationStatusService {
         reservation.setStatus(
                 cancelledStatus
         );
-        reservation.setCancelledBy(currentUserService.getCurrentUser());
+        reservation.setCancelledBy(currentUser);
         reservation.setCancelledAt(OffsetDateTime.now());
 
         Reservation saved =

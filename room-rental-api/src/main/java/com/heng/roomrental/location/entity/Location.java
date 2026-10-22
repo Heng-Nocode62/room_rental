@@ -8,13 +8,13 @@ import lombok.Setter;
 
 @Entity
 @Table(
-    name = "locations",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uq_locations_code",
-            columnNames = "code"
-        )
-    }
+        name = "locations",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uq_locations_code",
+                        columnNames = "code"
+                )
+        }
 )
 @Getter
 @Setter
@@ -40,6 +40,15 @@ public class Location extends BaseEntity {
     @Column(nullable = false, length = 20)
     private LocationStatus status;
 
+    @Column(nullable = false)
+    private Integer floor;
 
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
 
+    @Column(name = "location_bakong_account_id", length = 100)
+    private String locationBakongAccountId;
+
+    @Column(name = "telegram_contact", length = 255)
+    private String telegramContact;
 }

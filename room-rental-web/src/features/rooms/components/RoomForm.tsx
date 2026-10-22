@@ -17,6 +17,9 @@ export interface RoomAmenityFormValue {
   amount: number;
 }
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
 export interface RoomFormValues {
   locationId: string;
   roomTypeId: string;
@@ -26,6 +29,7 @@ export interface RoomFormValues {
   hourlyPrice: number;
   dailyPrice: number;
   description: string;
+  image: File | null;
   amenities: RoomAmenityFormValue[];
 }
 
@@ -39,7 +43,7 @@ interface Props {
   locations: Option[];
   roomTypes: Option[];
   mode?: "create" | "edit";
-  initialValues?: Partial<RoomFormValues>;
+  initialValues?: Partial<RoomFormValues> & { imageUrl?: string | null };
   loading?: boolean;
   fixedLocationId?: number;
   /** Server error message shown above the buttons */
@@ -83,6 +87,7 @@ export function RoomForm({
       hourlyPrice: initialValues?.hourlyPrice,
       dailyPrice: initialValues?.dailyPrice,
       description: initialValues?.description ?? "",
+      image: null,
       amenities: initialValues?.amenities ?? [],
     },
   });
@@ -96,6 +101,15 @@ export function RoomForm({
   useEffect(() => {
     register("locationId", { required: "Location is required" });
     register("roomTypeId", { required: "Room type is required" });
+    register("image", {
+      validate: (file) => {
+        if (!file) return true;
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          return "Only JPEG, PNG, and WebP images are allowed";
+        }
+        return file.size <= MAX_IMAGE_SIZE || "Image must not exceed 5 MB";
+      },
+    });
   }, [register]);
 
   const { fields, append, remove, replace } = useFieldArray({
@@ -106,6 +120,20 @@ export function RoomForm({
   const locationId = watch("locationId");
   const roomTypeId = watch("roomTypeId");
   const watchedAmenities = watch("amenities");
+  const selectedImage = watch("image");
+
+  const previewUrl = useMemo(
+    () => (selectedImage ? URL.createObjectURL(selectedImage) : null),
+    [selectedImage],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const shownImage = previewUrl ?? initialValues?.imageUrl ?? null;
 
   const locationName =
     locations.find((location) => location.id === Number(locationId))?.name ??
@@ -346,6 +374,69 @@ export function RoomForm({
             placeholder="Describe this room..."
             {...register("description")}
           />
+
+          
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-medium text-slate-600">Room image (optional)</p>
+              <span className="text-xs text-slate-400">JPEG, PNG, or WebP · up to 5 MB</span>
+            </div>
+
+            {shownImage && (
+              <div className="relative overflow-hidden rounded-xl border border-slate-200">
+                <img
+                  src={shownImage}
+                  alt={selectedImage ? "Selected room" : "Current room"}
+                  className="h-44 w-full object-cover"
+                />
+                <span className="absolute left-2 top-2 rounded-md bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+                  {selectedImage ? "New image preview" : "Current image"}
+                </span>
+                {selectedImage && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setValue("image", null, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
+                    className="absolute right-2 top-2 rounded-lg bg-white/90 px-2.5 py-1 text-xs font-medium text-slate-700 shadow hover:bg-white"
+                  >
+                    Clear selection
+                  </button>
+                )}
+              </div>
+            )}
+
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-4 py-5 text-center transition hover:border-slate-400 hover:bg-slate-50">
+              <span className="text-sm font-medium text-slate-700">
+                {shownImage ? "Choose a different image" : "Click to upload a room image"}
+              </span>
+              <span className="text-xs text-slate-500">
+                The image is uploaded after the room is saved.
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={loading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setValue("image", file, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                  event.target.value = "";
+                }}
+              />
+            </label>
+
+            {errors.image && (
+              <p className="text-xs text-red-600">{errors.image.message}</p>
+            )}
+          </div>
+
         </Section>
 
         {/* 3 — Pricing */}

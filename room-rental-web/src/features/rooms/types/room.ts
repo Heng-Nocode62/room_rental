@@ -38,6 +38,7 @@ export interface RoomResponse {
   name: string;
   floor?: string;
   description?: string;
+  imageUrl?: string | null;
   capacity: number;
   status: RoomStatus | string;
   prices: RoomPriceResponse[]

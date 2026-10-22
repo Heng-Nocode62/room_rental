@@ -7,6 +7,7 @@ import {
   LoadingState,
   PageHeader,
   Pagination,
+  Select,
 } from "../../../components/ui";
 
 import { useLocationScope } from "../../location-scope/LocationScopeProvider";
@@ -20,20 +21,27 @@ import { ReservationTable } from "../../reservations/components/ReservationTable
 import { ReservationDetailsDialog } from "../../reservations/components/ReservationDetailsDialog";
 import { OwnerReservationCreateDialog } from "../components/reservations/OwnerReservationCreateDialog";
 
+const PAGE_SIZES = [10, 20, 50, 100];
+
+const SORT_OPTIONS = [
+  { value: "startAt,desc", label: "Newest first" },
+  { value: "startAt,asc", label: "Oldest first" },
+];
+
 export default function OwnerReservationsPage() {
   const scope = useLocationScope();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
-  const [date, setDate] = useState(
-    new Date().toISOString().slice(0, 10),
-  );
+  const [date, setDate] = useState("");
   const [roomId, setRoomId] = useState("");
   const [pricingUnitId, setPricingUnitId] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const [sort, setSort] = useState("startAt,desc");
   const [view, setView] = useState<ReservationResponse | null>(null);
 
   const locationId = scope.currentLocationId;
@@ -45,9 +53,7 @@ export default function OwnerReservationsPage() {
   }, [locationId]);
 
   const canLoadReservations =
-    !scope.isLoading &&
-    !scope.isError &&
-    locationId !== null;
+    !scope.isLoading && !scope.isError && locationId !== null;
 
   const list = useReservations(
     {
@@ -58,17 +64,15 @@ export default function OwnerReservationsPage() {
       locationId: locationId ?? undefined,
 
       roomId: roomId ? Number(roomId) : undefined,
-      pricingUnitId: pricingUnitId
-        ? Number(pricingUnitId)
-        : undefined,
+      pricingUnitId: pricingUnitId ? Number(pricingUnitId) : undefined,
 
       date: date || undefined,
       fromDate: fromDate || undefined,
       toDate: toDate || undefined,
 
       page,
-      size: 20,
-      sort: "startAt,desc",
+      size,
+      sort,
     },
     canLoadReservations,
   );
@@ -85,9 +89,7 @@ export default function OwnerReservationsPage() {
     const mutation = { confirm, cancel, checkIn, checkOut }[action];
 
     void mutation.mutateAsync(reservation.id).then((updated) => {
-      setView((current) =>
-        current?.id === updated.id ? updated : current,
-      );
+      setView((current) => (current?.id === updated.id ? updated : current));
     });
   };
 
@@ -133,6 +135,11 @@ export default function OwnerReservationsPage() {
     setPage(0);
   };
 
+  const changePage = (next: number) => {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (scope.isLoading) {
     return <LoadingState />;
   }
@@ -154,6 +161,15 @@ export default function OwnerReservationsPage() {
       />
     );
   }
+
+  const total = list.data?.totalElements;
+  const firstItem =
+    list.data && !list.data.empty ? list.data.page * list.data.size + 1 : 0;
+  const lastItem = list.data ? firstItem + list.data.content.length - 1 : 0;
+
+  // Only show the full loading state on the very first load. On page changes
+  // the previous page stays visible (needs keepPreviousData in useReservations).
+  const initialLoading = list.isLoading && !list.data;
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6">
@@ -202,57 +218,88 @@ export default function OwnerReservationsPage() {
         onClearFilters={clearFilters}
       />
 
-      {list.isLoading && <LoadingState />}
+      {initialLoading && <LoadingState />}
 
       {list.isError && (
         <EmptyState
           title="Unable to load reservations"
           description="Something went wrong while loading reservations."
           action={
-            <Button
-              variant="secondary"
-              onClick={() => void list.refetch()}
-            >
+            <Button variant="secondary" onClick={() => void list.refetch()}>
               Try again
             </Button>
           }
         />
       )}
 
-      {!list.isLoading &&
-        !list.isError &&
-        list.data?.empty && (
-          <EmptyState
-            title="No reservations found"
-            description="Change the filters or create a new reservation."
-            action={
-              <Button
-                variant="secondary"
-                onClick={clearFilters}
-              >
-                Clear filters
-              </Button>
-            }
+      {!initialLoading && !list.isError && list.data?.empty && (
+        <EmptyState
+          title="No reservations found"
+          description="Change the filters or create a new reservation."
+          action={
+            <Button variant="secondary" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          }
+        />
+      )}
+
+      {!initialLoading && !list.isError && list.data && !list.data.empty && (
+        <div
+          className={[
+            "space-y-4 transition-opacity",
+            list.isFetching ? "opacity-60" : "opacity-100",
+          ].join(" ")}
+          aria-busy={list.isFetching}
+        >
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <p className="text-sm text-slate-500">
+              Showing{" "}
+              <span className="font-medium text-slate-800">
+                {firstItem}–{lastItem}
+              </span>{" "}
+              of <span className="font-medium text-slate-800">{total}</span>
+            </p>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-44">
+                <Select
+                  label="Sort by"
+                  value={sort}
+                  onChange={(event) => {
+                    setSort(event.target.value);
+                    setPage(0);
+                  }}
+                  options={SORT_OPTIONS}
+                />
+              </div>
+
+              <div className="w-32">
+                <Select
+                  label="Per page"
+                  value={String(size)}
+                  onChange={(event) => {
+                    setSize(Number(event.target.value));
+                    setPage(0);
+                  }}
+                  options={PAGE_SIZES.map((n) => ({
+                    value: String(n),
+                    label: String(n),
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+
+          <ReservationTable
+            reservations={list.data.content}
+            onView={setView}
+            onAction={onAction}
           />
-        )}
 
-      {!list.isLoading &&
-        !list.isError &&
-        list.data &&
-        !list.data.empty && (
-          <>
-            <ReservationTable
-              reservations={list.data.content}
-              onView={setView}
-              onAction={onAction}
-            />
-
-            <Pagination
-              pagination={list.data}
-              onPageChange={setPage}
-            />
-          </>
-        )}
+          <Pagination pagination={list.data} onPageChange={changePage} />
+        </div>
+      )}
 
       <OwnerReservationCreateDialog
         open={createOpen}

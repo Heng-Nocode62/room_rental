@@ -17,6 +17,7 @@ import {
 import { useLocations } from "../../locations/hooks/useLocations.ts";
 import { useCreateLocation } from "../../locations/hooks/useCreateLocation.ts";
 import { useUpdateLocation } from "../../locations/hooks/useUpdateLocation.ts";
+import { useUpdateLocationImage } from "../../locations/hooks/useUpdateLocationImage.ts";
 import { useDeactivateLocation } from "../../locations/hooks/useDeactivateLocation.ts";
 
 import {
@@ -34,8 +35,10 @@ import { useTranslation } from "react-i18next";
 
 import { useRoles } from "../../roles/hooks/roleHooks.ts";
 import { useUsers } from "../../users/hooks/useUsers.ts";
+
 export default function AdminLocationsPage() {
   const { t } = useTranslation();
+
   const {
     data: locations,
     isLoading,
@@ -45,6 +48,7 @@ export default function AdminLocationsPage() {
 
   const create = useCreateLocation();
   const update = useUpdateLocation();
+  const updateImage = useUpdateLocationImage();
   const deactivate = useDeactivateLocation();
 
   const roles = useRoles();
@@ -77,55 +81,99 @@ export default function AdminLocationsPage() {
   const [hours, setHours] =
     useState<LocationResponse | null>(null);
 
+  const [formError, setFormError] =
+    useState<string | null>(null);
+
   const close = () => {
     setMode(null);
     setSelected(null);
+    setFormError(null);
   };
 
   const submit = async (
     v: AdminLocationFormValues,
   ) => {
+    setFormError(null);
+
     const common = {
       name: v.name.trim(),
       address: v.address.trim() || undefined,
       phone: v.phone.trim() || undefined,
       timeZone: v.timeZone.trim(),
       floor: v.floor,
+      locationBakongAccountId:
+        v.locationBakongAccountId.trim() || undefined,
+      telegramContact:
+        v.telegramContact.trim() || undefined,
     };
 
-    if (mode === "edit" && selected) {
-      await update.mutateAsync({
-        id: selected.id,
-        request: common,
+    try {
+      if (mode === "edit" && selected) {
+        await update.mutateAsync({
+          id: selected.id,
+          request: common,
+        });
+
+        if (v.image) {
+          await updateImage.mutateAsync({
+            id: selected.id,
+            image: v.image,
+          });
+        }
+
+        close();
+        return;
+      }
+
+      if (!v.ownerId) {
+        setFormError("Please select a location owner.");
+        return;
+      }
+
+      const created = await create.mutateAsync({
+        ...common,
+        code: v.code.trim(),
+        ownerId: v.ownerId,
       });
 
+      if (v.image) {
+        try {
+          await updateImage.mutateAsync({
+            id: created.id,
+            image: v.image,
+          });
+        } catch {
+          // The location was saved successfully; only image upload failed.
+          // Switch to edit mode to avoid creating a duplicate location.
+          setSelected(created);
+          setMode("edit");
+          setFormError(
+            "Location created, but the image upload failed. Select the image again and save changes to retry.",
+          );
+          return;
+        }
+      }
+
       close();
-      return;
+    } catch (error) {
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save the location.",
+      );
     }
-
-    if (!v.ownerId) {
-      return;
-    }
-
-    await create.mutateAsync({
-      name: common.name,
-      code: v.code.trim(),
-      address: common.address,
-      phone: common.phone,
-      timeZone: common.timeZone,
-      floor: common.floor,
-      ownerId: v.ownerId,
-    });
-
-    close();
   };
-
 
   const selectedOwner = view
     ? ownerUsers.data?.content.find(
         (user) => user.id === view.ownerId,
       )
     : undefined;
+
+  const formLoading =
+    create.isPending ||
+    update.isPending ||
+    updateImage.isPending;
 
   return (
     <div className="mx-auto w-full max-w-350 space-y-6">
@@ -135,18 +183,18 @@ export default function AdminLocationsPage() {
         actions={
           <Button
             leftIcon={<Plus size={17} />}
-            onClick={() => setMode("create")}
+            onClick={() => {
+              setSelected(null);
+              setFormError(null);
+              setMode("create");
+            }}
           >
             Add location
           </Button>
         }
       />
 
-      {/* Loading */}
-
       {isLoading && <LoadingState />}
-
-      {/* Error */}
 
       {isError && (
         <EmptyState
@@ -163,8 +211,6 @@ export default function AdminLocationsPage() {
         />
       )}
 
-      {/* Locations */}
-
       {!isLoading &&
         !isError &&
         !!locations?.length && (
@@ -173,6 +219,7 @@ export default function AdminLocationsPage() {
             onView={setView}
             onEdit={(item) => {
               setSelected(item);
+              setFormError(null);
               setMode("edit");
             }}
             onHours={setHours}
@@ -184,8 +231,6 @@ export default function AdminLocationsPage() {
           />
         )}
 
-      {/* Empty */}
-
       {!isLoading &&
         !isError &&
         locations?.length === 0 && (
@@ -194,15 +239,17 @@ export default function AdminLocationsPage() {
             description="Create a location before adding rooms."
             action={
               <Button
-                onClick={() => setMode("create")}
+                onClick={() => {
+                  setSelected(null);
+                  setFormError(null);
+                  setMode("create");
+                }}
               >
                 Add location
               </Button>
             }
           />
         )}
-
-      {/* Create / Edit */}
 
       <Modal
         open={mode !== null}
@@ -212,56 +259,46 @@ export default function AdminLocationsPage() {
             ? "Edit location"
             : "Add location"
         }
-        description="Location identity stays compact; operating hours are managed separately."
       >
         <AdminLocationForm
           key={`${mode}-${selected?.id ?? "new"}`}
           mode={mode || "create"}
-          initialValues={
-            selected ?? undefined
-          }
-          owners={
-            ownerUsers.data?.content ?? []
-          }
+          initialValues={selected ?? undefined}
+          owners={ownerUsers.data?.content ?? []}
           ownersLoading={
             roles.isLoading ||
             ownerUsers.isLoading
           }
           onSubmit={submit}
-          loading={
-            create.isPending ||
-            update.isPending
-          }
+          loading={formLoading}
+          error={formError}
         />
 
         {(create.isError ||
-          update.isError) && (
-          <p className="mt-3 text-sm text-rose-600">
-            Unable to save the location.
-          </p>
-        )}
-
-        {!roles.isLoading &&
-          !ownerRole && (
+          update.isError ||
+          updateImage.isError) &&
+          !formError && (
             <p className="mt-3 text-sm text-rose-600">
-              The OWNER role could not be found.
-              A location cannot be created until an
-              OWNER role is available.
+              Unable to save the location.
             </p>
           )}
+
+        {!roles.isLoading && !ownerRole && (
+          <p className="mt-3 text-sm text-rose-600">
+            The OWNER role could not be found.
+            A location cannot be created until an OWNER role is available.
+          </p>
+        )}
 
         {!roles.isLoading &&
           ownerRole &&
           !ownerUsers.isLoading &&
           ownerUsers.data?.empty && (
             <p className="mt-3 text-sm text-amber-600">
-              No users with the OWNER role are
-              available.
+              No users with the OWNER role are available.
             </p>
           )}
       </Modal>
-
-      {/* Quick View */}
 
       {view && (
         <QuickViewDialog
@@ -293,6 +330,20 @@ export default function AdminLocationsPage() {
               value: view.phone || "—",
             },
             {
+              label: "Bakong account ID",
+              value: view.locationBakongAccountId || "—",
+              wide: true,
+            },
+            {
+              label: "Telegram contact",
+              value: view.telegramContact || "—",
+              wide: true,
+            },
+            {
+              label: "Location image",
+              value: view.imageUrl ? "Uploaded" : "Not uploaded",
+            },
+            {
               label: "Address",
               value: view.address || "—",
               wide: true,
@@ -300,8 +351,6 @@ export default function AdminLocationsPage() {
           ]}
         />
       )}
-
-      {/* Operating Hours */}
 
       {hours && (
         <OperatingHoursDialog
@@ -312,4 +361,5 @@ export default function AdminLocationsPage() {
         />
       )}
     </div>
-  );}
+  );
+}

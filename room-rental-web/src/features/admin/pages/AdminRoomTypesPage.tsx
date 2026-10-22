@@ -292,7 +292,6 @@ export default function AdminRoomTypesPage() {
       <PageHeader
         icon={<Sparkles size={19} />}
         title={t("roomTypes")}
-        description="Define the kinds of rooms each location offers."
         actions={
           <Button leftIcon={<Plus size={17} />} onClick={openCreate}>
             Add room type

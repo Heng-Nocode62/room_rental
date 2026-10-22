@@ -67,7 +67,7 @@ public class AmenityController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@locationSecurity.hasPermission(#request.locationId,'AMENITY_UPDATE')")
+    @PreAuthorize("@locationSecurity.hasPermission(#id,'AMENITY_UPDATE')")
     public AmenityResponse update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateAmenityRequest request

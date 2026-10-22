@@ -156,7 +156,11 @@ export default function UserBrowseRoomsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const today = DateTime.now().toISODate() ?? "";
 
-  // Draft values: the user can adjust the top search and sidebar, then press Search.
+  // Mobile/tablet: filters live in a bottom-sheet drawer instead of stacking above results.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Draft values: the user adjusts the top search and filters; they are pushed
+  // to the URL (debounced), and the queries read from the URL.
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
   const [locationId, setLocationId] = useState(
     searchParams.get("locationId") ?? "",
@@ -210,7 +214,7 @@ export default function UserBrowseRoomsPage() {
     [roomTypes],
   );
 
-  // Applied values come from the URL. The rooms query only changes after Search is pressed.
+  // Applied values come from the URL.
   const appliedKeyword = searchParams.get("keyword")?.trim() || undefined;
   const appliedLocationText = searchParams.get("locationId") ?? "";
   const appliedLocationId = appliedLocationText
@@ -349,51 +353,79 @@ export default function UserBrowseRoomsPage() {
     sort,
   ]);
 
- // Push draft filter values into the URL whenever they change.
-// The rooms query reads from the URL, so this is what triggers the search.
-useEffect(() => {
-  const timer = window.setTimeout(() => {
-    const params = new URLSearchParams();
-    if (keyword.trim()) params.set("keyword", keyword.trim());
-    if (locationId) params.set("locationId", locationId);
-    if (date) params.set("date", date);
-    if (startTime) params.set("startTime", startTime);
-    if (durationHours) params.set("durationHours", durationHours);
-    if (capacityRanges.length) params.set("capacityRanges", capacityRanges.join(","));
-    params.set("maxHourlyPrice", String(maxHourlyPrice));
-    if (amenityIds.length) params.set("amenityIds", amenityIds.join(","));
-    if (floors.length) params.set("floors", floors.join(","));
-    if (sort) params.set("sort", sort);
-    setSearchParams(params, { replace: true });
-  }, 350);
+  // Push draft filter values into the URL whenever they change.
+  // The rooms query reads from the URL, so this is what triggers the search.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams();
+      if (keyword.trim()) params.set("keyword", keyword.trim());
+      if (locationId) params.set("locationId", locationId);
+      if (date) params.set("date", date);
+      if (startTime) params.set("startTime", startTime);
+      if (durationHours) params.set("durationHours", durationHours);
+      if (capacityRanges.length)
+        params.set("capacityRanges", capacityRanges.join(","));
+      params.set("maxHourlyPrice", String(maxHourlyPrice));
+      if (amenityIds.length) params.set("amenityIds", amenityIds.join(","));
+      if (floors.length) params.set("floors", floors.join(","));
+      if (sort) params.set("sort", sort);
+      setSearchParams(params, { replace: true });
+    }, 350);
 
-  return () => window.clearTimeout(timer);
-}, [
-  keyword,
-  locationId,
-  date,
-  startTime,
-  durationHours,
-  capacityRanges,
-  maxHourlyPrice,
-  amenityIds,
-  floors,
-  sort,
-  setSearchParams,
-]);
+    return () => window.clearTimeout(timer);
+  }, [
+    keyword,
+    locationId,
+    date,
+    startTime,
+    durationHours,
+    capacityRanges,
+    maxHourlyPrice,
+    amenityIds,
+    floors,
+    sort,
+    setSearchParams,
+  ]);
+
+  // Drawer behaviour: lock page scroll, close on Escape, and close if the
+  // viewport grows to desktop width (where the sidebar is shown instead).
+  useEffect(() => {
+    if (!filtersOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const onMediaChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setFiltersOpen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    mediaQuery.addEventListener("change", onMediaChange);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      mediaQuery.removeEventListener("change", onMediaChange);
+    };
+  }, [filtersOpen]);
 
   const clearFilters = () => {
-  setKeyword("");
-  setLocationId("");
-  setDate(today);
-  setStartTime("10:00");
-  setDurationHours("2");
-  setCapacityRanges([]);
-  setMaxHourlyPrice(100);
-  setAmenityIds([]);
-  setFloors([]);
-  setSort("recommended");
-};
+    setKeyword("");
+    setLocationId("");
+    setDate(today);
+    setStartTime("10:00");
+    setDurationHours("2");
+    setCapacityRanges([]);
+    setMaxHourlyPrice(100);
+    setAmenityIds([]);
+    setFloors([]);
+    setSort("recommended");
+  };
+
   const handleLocationChange = (value: string) => {
     setLocationId(value);
     // Amenities belong to a location, so don't carry selected amenity IDs across locations.
@@ -406,65 +438,169 @@ useEffect(() => {
     (location) => location.id === appliedLocationId,
   )?.name;
 
+  // Badge on the mobile "Filters" button (sidebar filters only).
+  const activeFilterCount =
+    (keyword.trim() ? 1 : 0) +
+    capacityRanges.length +
+    amenityIds.length +
+    floors.length +
+    (maxHourlyPrice < 100 ? 1 : 0);
+
+  const showResultsLabel = isLoading
+    ? "Show results"
+    : `Show ${filteredRooms.length} ${filteredRooms.length === 1 ? "room" : "rooms"}`;
+
+  // The filter fields are shared by the desktop sidebar and the mobile drawer.
+  const filterFields = (
+    <>
+      <FilterSection title="Search rooms">
+        <Input
+          placeholder="Room name or number"
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+        />
+      </FilterSection>
+
+      <FilterSection title="Capacity">
+        {CAPACITY_RANGES.map((range) => (
+          <CheckboxRow
+            key={range.value}
+            label={range.label}
+            checked={capacityRanges.includes(range.value)}
+            onChange={() =>
+              setCapacityRanges((current) => toggleValue(current, range.value))
+            }
+          />
+        ))}
+      </FilterSection>
+
+      <FilterSection title="Price per hour">
+        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+          <span>$0</span>
+          <span className="font-bold text-slate-900 dark:text-white">
+            Up to ${maxHourlyPrice}
+          </span>
+          <span>$100</span>
+        </div>
+        <input
+          aria-label="Maximum hourly price"
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={maxHourlyPrice}
+          onChange={(event) => setMaxHourlyPrice(Number(event.target.value))}
+          className="mt-3 w-full cursor-pointer accent-blue-600"
+        />
+      </FilterSection>
+
+      <FilterSection title="Amenities">
+        {amenitiesLoading ? (
+          <p className="text-xs text-slate-400">Loading amenities…</p>
+        ) : activeAmenities.length === 0 ? (
+          <p className="text-xs leading-5 text-slate-400">
+            {locationId
+              ? "No active amenities for this location."
+              : "No active amenities available."}
+          </p>
+        ) : (
+          activeAmenities.map((amenity) => (
+            <CheckboxRow
+              key={amenity.id}
+              label={amenity.name}
+              checked={amenityIds.includes(String(amenity.id))}
+              onChange={() =>
+                setAmenityIds((current) =>
+                  toggleValue(current, String(amenity.id)),
+                )
+              }
+            />
+          ))
+        )}
+      </FilterSection>
+
+      <FilterSection title="Floor">
+        {FLOOR_OPTIONS.map((floor) => (
+          <CheckboxRow
+            key={floor.value}
+            label={floor.label}
+            checked={floors.includes(floor.value)}
+            onChange={() =>
+              setFloors((current) => toggleValue(current, floor.value))
+            }
+          />
+        ))}
+      </FilterSection>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-[1440px] space-y-6 px-4 py-7 lg:px-8">
+      <div className="mx-auto max-w-[1440px] space-y-4 px-4 py-5 sm:space-y-6 sm:py-7 lg:px-8">
         {/* Top search bar — location, date, start time and duration */}
         <Card className="p-3 sm:p-4">
-          <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-[1.15fr_1.05fr_0.95fr_0.9fr]">
-            <SelectInput
-              label="Location"
-              value={locationId}
-              disabled={locationsLoading}
-              onChange={(event) => handleLocationChange(event.target.value)}
-            >
-              <option value="">All locations</option>
-              {activeLocations.map((location) => (
-                <option key={location.id} value={location.id}>
-                  {location.name}
-                </option>
-              ))}
-            </SelectInput>
+          <div className="grid grid-cols-2 items-end gap-3 xl:grid-cols-[1.15fr_1.05fr_0.95fr_0.9fr]">
+            <div className="col-span-2 min-w-0 sm:col-span-1">
+              <SelectInput
+                label="Location"
+                value={locationId}
+                disabled={locationsLoading}
+                onChange={(event) => handleLocationChange(event.target.value)}
+              >
+                <option value="">All locations</option>
+                {activeLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
 
-            <Input
-              label="Date"
-              type="date"
-              value={date}
-              min={today}
-              onChange={(event) => setDate(event.target.value)}
-            />
+            <div className="col-span-2 min-w-0 sm:col-span-1">
+              <Input
+                label="Date"
+                type="date"
+                value={date}
+                min={today}
+                onChange={(event) => setDate(event.target.value)}
+              />
+            </div>
 
-            <SelectInput
-              label="Start time"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-            >
-              {START_TIMES.map((time) => (
-                <option key={time} value={time}>
-                  {DateTime.fromFormat(time, "HH:mm").toFormat("hh:mm a")}
-                </option>
-              ))}
-            </SelectInput>
+            <div className="min-w-0">
+              <SelectInput
+                label="Start time"
+                value={startTime}
+                onChange={(event) => setStartTime(event.target.value)}
+              >
+                {START_TIMES.map((time) => (
+                  <option key={time} value={time}>
+                    {DateTime.fromFormat(time, "HH:mm").toFormat("hh:mm a")}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
 
-            <SelectInput
-              label="Duration"
-              value={durationHours}
-              onChange={(event) => setDurationHours(event.target.value)}
-            >
-              {[1, 2, 3, 4, 5, 6, 8].map((hours) => (
-                <option key={hours} value={hours}>
-                  {hours} {hours === 1 ? "hour" : "hours"}
-                </option>
-              ))}
-            </SelectInput>
+            <div className="min-w-0">
+              <SelectInput
+                label="Duration"
+                value={durationHours}
+                onChange={(event) => setDurationHours(event.target.value)}
+              >
+                {[1, 2, 3, 4, 5, 6, 8].map((hours) => (
+                  <option key={hours} value={hours}>
+                    {hours} {hours === 1 ? "hour" : "hours"}
+                  </option>
+                ))}
+              </SelectInput>
+            </div>
           </div>
         </Card>
 
-        {/* Main content: sidebar filters + room results */}
+        {/* Main content: sidebar filters (desktop) + room results */}
         <div className="grid items-start gap-6 lg:grid-cols-[245px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="lg:sticky lg:top-[84px]">
+          {/* Desktop sidebar — hidden below lg, replaced by the drawer */}
+          <aside className="hidden lg:sticky lg:top-[84px] lg:block">
             <Card className="flex flex-col overflow-hidden lg:max-h-[calc(100vh-84px-24px)]">
-              {/* Header: stays pinned at the top */}
               <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <Icon
@@ -485,99 +621,15 @@ useEffect(() => {
                 </button>
               </div>
 
-              {/* Scrollable filter list */}
               <div className="min-h-0 flex-1 divide-y divide-slate-200 overflow-y-auto overscroll-contain dark:divide-slate-800">
-                <FilterSection title="Search rooms">
-                  <Input
-                    placeholder="Room name or number"
-                    value={keyword}
-                    onChange={(event) => setKeyword(event.target.value)}
-                  />
-                </FilterSection>
-
-                <FilterSection title="Capacity">
-                  {CAPACITY_RANGES.map((range) => (
-                    <CheckboxRow
-                      key={range.value}
-                      label={range.label}
-                      checked={capacityRanges.includes(range.value)}
-                      onChange={() =>
-                        setCapacityRanges((current) =>
-                          toggleValue(current, range.value),
-                        )
-                      }
-                    />
-                  ))}
-                </FilterSection>
-
-                <FilterSection title="Price per hour">
-                  <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                    <span>$0</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
-                      Up to ${maxHourlyPrice}
-                    </span>
-                    <span>$100</span>
-                  </div>
-                  <input
-                    aria-label="Maximum hourly price"
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={maxHourlyPrice}
-                    onChange={(event) =>
-                      setMaxHourlyPrice(Number(event.target.value))
-                    }
-                    className="mt-3 w-full cursor-pointer accent-blue-600"
-                  />
-                </FilterSection>
-
-                <FilterSection title="Amenities">
-                  {amenitiesLoading ? (
-                    <p className="text-xs text-slate-400">Loading amenities…</p>
-                  ) : activeAmenities.length === 0 ? (
-                    <p className="text-xs leading-5 text-slate-400">
-                      {locationId
-                        ? "No active amenities for this location."
-                        : "No active amenities available."}
-                    </p>
-                  ) : (
-                    activeAmenities.map((amenity) => (
-                      <CheckboxRow
-                        key={amenity.id}
-                        label={amenity.name}
-                        checked={amenityIds.includes(String(amenity.id))}
-                        onChange={() =>
-                          setAmenityIds((current) =>
-                            toggleValue(current, String(amenity.id)),
-                          )
-                        }
-                      />
-                    ))
-                  )}
-                </FilterSection>
-
-                <FilterSection title="Floor">
-                  {FLOOR_OPTIONS.map((floor) => (
-                    <CheckboxRow
-                      key={floor.value}
-                      label={floor.label}
-                      checked={floors.includes(floor.value)}
-                      onChange={() =>
-                        setFloors((current) =>
-                          toggleValue(current, floor.value),
-                        )
-                      }
-                    />
-                  ))}
-                </FilterSection>
+                {filterFields}
               </div>
             </Card>
           </aside>
 
           <section className="min-w-0 space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
+              <div className="min-w-0">
                 <p className="text-lg font-bold text-slate-950 dark:text-white">
                   {isLoading
                     ? "Finding rooms…"
@@ -597,21 +649,39 @@ useEffect(() => {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 sm:justify-end">
-                <span className="whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                {/* Filters button — mobile/tablet only */}
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(true)}
+                  className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-700 lg:hidden"
+                >
+                  <SlidersIcon />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-bold text-white">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+
+                <span className="hidden whitespace-nowrap text-xs text-slate-500 dark:text-slate-400 sm:inline">
                   Sort by
                 </span>
-                <SelectInput
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value)}
-                  className="min-w-[165px]"
-                >
-                  <option value="recommended">Recommended</option>
-                  <option value="price-low">Price: low to high</option>
-                  <option value="price-high">Price: high to low</option>
-                  <option value="capacity-high">Capacity: high to low</option>
-                  <option value="name-asc">Name A–Z</option>
-                </SelectInput>
+                <div className="min-w-0 flex-1 sm:flex-none">
+                  <SelectInput
+                    aria-label="Sort rooms"
+                    value={sort}
+                    onChange={(event) => setSort(event.target.value)}
+                    className="w-full sm:min-w-[165px]"
+                  >
+                    <option value="recommended">Recommended</option>
+                    <option value="price-low">Price: low to high</option>
+                    <option value="price-high">Price: high to low</option>
+                    <option value="capacity-high">Capacity: high to low</option>
+                    <option value="name-asc">Name A–Z</option>
+                  </SelectInput>
+                </div>
               </div>
             </div>
 
@@ -632,7 +702,7 @@ useEffect(() => {
             )}
 
             {!isLoading && !hasError && filteredRooms.length > 0 && (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-4">
                 {filteredRooms.map((room) => (
                   <RoomCard
                     key={room.id}
@@ -646,6 +716,67 @@ useEffect(() => {
           </section>
         </div>
       </div>
+
+      {/* Mobile/tablet filters drawer (bottom sheet) */}
+      {filtersOpen && (
+        <div
+          className="fixed inset-0 z-50 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Filters"
+        >
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setFiltersOpen(false)}
+            className="absolute inset-0 bg-slate-950/50"
+          />
+
+          <div className="absolute inset-x-0 bottom-0 mx-auto flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl dark:bg-slate-900">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-950 dark:text-white">
+                Filters
+                {activeFilterCount > 0 && (
+                  <span className="ml-2 text-sm font-medium text-slate-500 dark:text-slate-400">
+                    ({activeFilterCount})
+                  </span>
+                )}
+              </h2>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-lg px-2 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                  Clear all
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  aria-label="Close filters"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 divide-y divide-slate-200 overflow-y-auto overscroll-contain dark:divide-slate-800">
+              {filterFields}
+            </div>
+
+            <div className="shrink-0 border-t border-slate-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(false)}
+                className="h-12 w-full rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+              >
+                {showResultsLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -677,14 +808,62 @@ function CheckboxRow({
   onChange: () => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+    // py-1 gives a larger tap target on touch screens
+    <label className="flex cursor-pointer items-center gap-2.5 py-1 text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
       <input
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-4 w-4 rounded border-slate-300 accent-blue-600 dark:border-slate-600"
+        className="h-4 w-4 shrink-0 rounded border-slate-300 accent-blue-600 dark:border-slate-600"
       />
-      <span>{label}</span>
+      <span className="min-w-0">{label}</span>
     </label>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="4" y1="21" x2="4" y2="14" />
+      <line x1="4" y1="10" x2="4" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12" y2="3" />
+      <line x1="20" y1="21" x2="20" y2="16" />
+      <line x1="20" y1="12" x2="20" y2="3" />
+      <line x1="1" y1="14" x2="7" y2="14" />
+      <line x1="9" y1="8" x2="15" y2="8" />
+      <line x1="17" y1="16" x2="23" y2="16" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   );
 }

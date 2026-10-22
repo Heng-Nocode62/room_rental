@@ -1,8 +1,6 @@
 package com.heng.roomrental.user.dto;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.*;
 
 public record CreateUserRequest(
 
@@ -27,6 +25,9 @@ public record CreateUserRequest(
         String email,
 
         @Size(max = 30)
-        String phone
+        String phone,
+        @NotNull
+        @Min(0)
+        Long roleId
 ) {
 }

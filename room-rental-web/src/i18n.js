@@ -7,9 +7,6 @@ const TRANSLATION_CACHE_PREFIX = "app.translations.";
 
 const DEFAULT_LANGUAGE = "en";
 
-/**
- * Get current language
- */
 export function getCurrentLanguage() {
   return (
     localStorage.getItem(LANGUAGE_STORAGE_KEY) ||
@@ -17,9 +14,7 @@ export function getCurrentLanguage() {
   );
 }
 
-/**
- * Save current language
- */
+
 export function saveCurrentLanguage(languageCode) {
   localStorage.setItem(
     LANGUAGE_STORAGE_KEY,
@@ -27,9 +22,7 @@ export function saveCurrentLanguage(languageCode) {
   );
 }
 
-/**
- * Get cached translations
- */
+
 function getCachedTranslations(languageCode) {
   const key =
     `${TRANSLATION_CACHE_PREFIX}${languageCode}`;
@@ -76,23 +69,7 @@ function saveTranslationsToCache(
   );
 }
 
-/**
- * Load translations from backend
- *
- * GET /api/translate/{languageCode}
- *
- * Response:
- *
- * {
- *   "language": "km",
- *   "title": "Khmer",
- *   "flag": null,
- *   "version": 2,
- *   "data": {
- *     "navigation.dashboard": "ផ្ទាំងគ្រប់គ្រង"
- *   }
- * }
- */
+
 export async function loadTranslations(
   languageCode
 ) {
@@ -104,17 +81,10 @@ export async function loadTranslations(
   const body = response.data;
 
 
-  /**
-   * The translations are here:
-   *
-   * body.data
-   */
   const translations =
     body?.data ?? {};
 
-  /**
-   * Make sure data is an object.
-   */
+
   if (
     typeof translations !== "object" ||
     Array.isArray(translations)
@@ -130,9 +100,6 @@ export async function loadTranslations(
     };
   }
 
-  /**
-   * Save cache
-   */
   saveTranslationsToCache(
     languageCode,
     translations,
@@ -145,22 +112,12 @@ export async function loadTranslations(
   };
 }
 
-/**
- * Change application language
- */
+
 export async function changeLanguage(
   languageCode
 ) {
-  console.log(
-    "Changing language:",
-    languageCode
-  );
 
-  /**
-   * --------------------------------------------------
-   * 1. Check localStorage
-   * --------------------------------------------------
-   */
+
 
   const cached =
     getCachedTranslations(
@@ -190,11 +147,7 @@ export async function changeLanguage(
     );
   }
 
-  /**
-   * --------------------------------------------------
-   * 2. Get latest translations
-   * --------------------------------------------------
-   */
+
 
   try {
 
@@ -203,9 +156,7 @@ export async function changeLanguage(
         languageCode
       );
 
-    /**
-     * Add translations to i18next
-     */
+
     i18n.addResourceBundle(
       languageCode,
       "translation",
@@ -214,24 +165,15 @@ export async function changeLanguage(
       true
     );
 
-    /**
-     * Change language
-     */
+
     await i18n.changeLanguage(
       languageCode
     );
 
-    /**
-     * Save selected language
-     */
     saveCurrentLanguage(
       languageCode
     );
 
-    console.log(
-      "Language changed successfully:",
-      i18n.language
-    );
 
   } catch (error) {
 
@@ -240,28 +182,17 @@ export async function changeLanguage(
       error
     );
 
-    /**
-     * If cache exists, keep using cache.
-     */
     if (!cached) {
       throw error;
     }
   }
 }
 
-/**
- * Initialize i18next
- */
 export async function initI18n() {
 
   const language =
     getCurrentLanguage();
 
-
-
-  /**
-   * Load cached translations first
-   */
   const cached =
     getCachedTranslations(
       language
@@ -277,10 +208,6 @@ export async function initI18n() {
     };
 
   }
-
-  /**
-   * Initialize i18next
-   */
   await i18n
     .use(initReactI18next)
     .init({
@@ -302,9 +229,6 @@ export async function initI18n() {
 
     });
 
-  /**
-   * Get latest translations
-   */
   try {
 
     const result =

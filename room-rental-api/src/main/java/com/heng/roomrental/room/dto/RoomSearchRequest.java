@@ -2,8 +2,11 @@ package com.heng.roomrental.room.dto;
 
 import com.heng.roomrental.room.entity.RoomStatus;
 
-public record RoomSearchRequest(
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 
+public record RoomSearchRequest(
         String keyword,
 
         Long locationId,
@@ -16,7 +19,16 @@ public record RoomSearchRequest(
 
         Integer maxCapacity,
 
-        Long amenityId
+        Long amenityId,
 
+        List<Long> amenityIds,
+
+        List<String> floors,
+
+        BigDecimal minHourlyPrice,
+
+        BigDecimal maxHourlyPrice,
+
+        LocalDate effectiveDate
 ) {
 }

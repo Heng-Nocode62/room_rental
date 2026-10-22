@@ -15,7 +15,7 @@ public record CreateRoomTypeRequest(
         String code,
 
         String description,
-
+        Long locationId,
         @Min(1)
         int capacity
 ) {

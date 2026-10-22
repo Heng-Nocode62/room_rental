@@ -81,7 +81,9 @@ public class UserServiceImpl
         user.setEmail(normalizeNullable(request.email()));
         user.setPhone(normalizeNullable(request.phone()));
         user.setStatus(UserStatus.ACTIVE);
-
+        user.setEmailVerified(true);
+        Role userRole = roleRepository.findById(request.roleId()).orElseThrow(()->new ResourceNotFoundException("Role not found"));
+        user.setRoles(Set.of(userRole));
         User saved = userRepository.save(user);
         return userMapper.toResponse(saved);
     }

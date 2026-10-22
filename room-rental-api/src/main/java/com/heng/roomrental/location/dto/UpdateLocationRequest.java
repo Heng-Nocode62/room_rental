@@ -1,6 +1,8 @@
 package com.heng.roomrental.location.dto;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record UpdateLocationRequest(
@@ -16,6 +18,16 @@ public record UpdateLocationRequest(
 
         @NotBlank
         @Size(max = 64)
-        String timeZone
+        String timeZone,
+
+        @NotNull
+        @Min(0)
+        Integer floor,
+
+        @Size(max = 100)
+        String locationBakongAccountId,
+
+        @Size(max = 255)
+        String telegramContact
 ) {
 }

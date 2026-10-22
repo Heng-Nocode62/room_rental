@@ -10,24 +10,18 @@ export function useRemoveRoomAmenity() {
     mutationFn: ({
       roomId,
       amenityId,
+      amount,
     }: {
       roomId: number;
       amenityId: number;
-    }) => roomApi.removeAmenity(roomId, amenityId),
+      amount?: number;
+    }) => roomApi.removeAmenity(roomId, amenityId, amount),
 
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: roomKeys.detail(variables.roomId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: roomKeys.amenities(variables.roomId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: roomKeys.lists(),
-      });
-      queryClient.invalidateQueries({
-        queryKey: roomKeys.locationAmenitiesRoot(),
-      });
+      queryClient.invalidateQueries({ queryKey: roomKeys.detail(variables.roomId) });
+      queryClient.invalidateQueries({ queryKey: roomKeys.amenities(variables.roomId) });
+      queryClient.invalidateQueries({ queryKey: roomKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: roomKeys.locationAmenitiesRoot() });
     },
   });
 }

@@ -35,6 +35,7 @@ public class DataSeeder {
                 admin.setPhone("123456789");
                 admin.setPasswordHash(passwordEncoder.encode("admin123"));
                 admin.setRoles(Set.of(role));
+                admin.setEmailVerified(true);
                 admin.setStatus(UserStatus.ACTIVE);
 
                 userRepository.save(admin);
@@ -54,6 +55,8 @@ public class DataSeeder {
                 staff.setPasswordHash(passwordEncoder.encode("staff123"));
                 staff.setRoles(Set.of(roleStaff));
                 staff.setStatus(UserStatus.ACTIVE);
+                staff.setEmailVerified(true);
+
 
                 userRepository.save(staff);
 

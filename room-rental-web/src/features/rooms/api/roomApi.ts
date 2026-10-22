@@ -78,6 +78,17 @@ export const roomApi = {
     return response.data;
   },
 
+  async updateImage(id: number, image: File): Promise<RoomResponse> {
+    const formData = new FormData();
+    formData.append("image", image);
+
+    const response = await api.put<RoomResponse>(
+      `/rooms/${id}/image`,
+      formData,
+    );
+    return response.data;
+  },
+
   async deactivate(id: number): Promise<void> {
     await api.delete(`/rooms/${id}`);
   },
@@ -89,14 +100,17 @@ export const roomApi = {
     return response.data;
   },
 
-  async addAmenity(
-    roomId: number,
-    request: RoomAmenityRequest,
-  ): Promise<void> {
+  async addAmenity(roomId: number, request: RoomAmenityRequest): Promise<void> {
     await api.post(`/rooms/${roomId}/amenities`, request);
   },
 
-  async removeAmenity(roomId: number, amenityId: number): Promise<void> {
-    await api.delete(`/rooms/${roomId}/amenities/${amenityId}`);
+  async removeAmenity(
+    roomId: number,
+    amenityId: number,
+    amount?: number,
+  ): Promise<void> {
+    await api.delete(`/rooms/${roomId}/amenities/${amenityId}`, {
+      params: amount !== undefined ? { amount } : undefined,
+    });
   },
 };

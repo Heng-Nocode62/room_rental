@@ -7,17 +7,19 @@ import com.heng.roomrental.room.dto.RoomSearchRequest;
 import com.heng.roomrental.room.dto.UpdateRoomRequest;
 import com.heng.roomrental.room.entity.RoomStatus;
 import com.heng.roomrental.room.service.RoomService;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -29,13 +31,12 @@ public class RoomController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("@locationSecurity.hasPermission(#request.locationId, 'ROOM_CREATE')")
+    @PreAuthorize("hasAuthority('ROOM_CREATE')")
     public RoomResponse create(
             @Valid
             @RequestBody
             CreateRoomRequest request
     ) {
-
         return roomService.create(request);
     }
 
@@ -44,7 +45,6 @@ public class RoomController {
     public RoomResponse getById(
             @PathVariable Long id
     ) {
-
         return roomService.getById(id);
     }
 
@@ -72,6 +72,21 @@ public class RoomController {
             @RequestParam(required = false)
             Long amenityId,
 
+            @RequestParam(required = false)
+            List<Long> amenityIds,
+
+            @RequestParam(required = false)
+            List<String> floors,
+
+            @RequestParam(required = false)
+            BigDecimal minHourlyPrice,
+
+            @RequestParam(required = false)
+            BigDecimal maxHourlyPrice,
+
+            @RequestParam(required = false)
+            LocalDate effectiveDate,
+
             @PageableDefault(
                     size = 20,
                     sort = "roomNumber",
@@ -79,7 +94,6 @@ public class RoomController {
             )
             Pageable pageable
     ) {
-
         RoomSearchRequest request =
                 new RoomSearchRequest(
                         keyword,
@@ -88,7 +102,12 @@ public class RoomController {
                         status,
                         minCapacity,
                         maxCapacity,
-                        amenityId
+                        amenityId,
+                        amenityIds,
+                        floors,
+                        minHourlyPrice,
+                        maxHourlyPrice,
+                        effectiveDate
                 );
 
         return PageResponse.from(
@@ -100,25 +119,34 @@ public class RoomController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@locationSecurity.hasPermission(#id, 'ROOM_UPDATE')")
+    @PreAuthorize("hasAuthority('ROOM_UPDATE')")
     public RoomResponse update(
             @PathVariable Long id,
-
             @Valid
             @RequestBody
             UpdateRoomRequest request
     ) {
-
         return roomService.update(id, request);
+    }
+
+    @PutMapping(
+            value = "/{id}/image",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("hasAuthority('ROOM_UPDATE')")
+    public RoomResponse updateImage(
+            @PathVariable Long id,
+            @RequestPart("image") MultipartFile image
+    ) {
+        return roomService.updateImage(id, image);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("@locationSecurity.hasPermission(#id, 'ROOM_DEACTIVATE')")
+    @PreAuthorize("hasAuthority('ROOM_DEACTIVATE')")
     public void deactivate(
             @PathVariable Long id
     ) {
-
         roomService.deactivate(id);
     }
 }

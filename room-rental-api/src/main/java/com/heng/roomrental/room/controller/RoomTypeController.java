@@ -7,8 +7,10 @@ import com.heng.roomrental.room.service.RoomTypeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -39,6 +41,14 @@ public class RoomTypeController {
 
         return roomTypeService.getById(id);
     }
+    @GetMapping("/location/{locationId}")
+    @PreAuthorize("hasAuthority('ROOM_TYPE_VIEW')")
+    public List<RoomTypeResponse> getByLocationId(
+            @PathVariable Long locationId
+    ) {
+
+        return roomTypeService.getByLocationId(locationId);
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('ROOM_TYPE_VIEW')")
@@ -58,6 +68,20 @@ public class RoomTypeController {
     ) {
 
         return roomTypeService.update(id, request);
+    }
+    @PutMapping(
+            value = "/{id}/image",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("hasAuthority('ROOM_TYPE_UPDATE')")
+    public RoomTypeResponse updateImage(
+            @PathVariable Long id,
+            @RequestPart("image") MultipartFile image
+    ) {
+        return roomTypeService.updateImage(
+                id,
+                image
+        );
     }
 
     @DeleteMapping("/{id}")

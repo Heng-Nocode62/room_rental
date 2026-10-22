@@ -39,10 +39,8 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -162,33 +160,35 @@ public class ReservationServiceImpl implements ReservationService {
                         "createdAt"
                 )
         );
-        Specification<Reservation> specification =
-                Specification.allOf(
 
-                        ReservationSpecifications.keyword(
-                                request.keyword()
-                        ),
+        List<Specification<Reservation>> specifications = Stream.of(
 
-                        ReservationSpecifications.room(
-                                request.roomId()
-                        ),
+                ReservationSpecifications.keyword(
+                        request.keyword()
+                ),
 
-                        ReservationSpecifications.location(
-                                request.locationId()
-                        ),
+                ReservationSpecifications.room(
+                        request.roomId()
+                ),
 
-                        ReservationSpecifications.status(
-                                request.status()
-                        ),
+                ReservationSpecifications.location(
+                        request.locationId()
+                ),
 
-                        ReservationSpecifications.pricingUnit(
-                                request.pricingUnitId()
-                        ),
+                ReservationSpecifications.status(
+                        request.status()
+                ),
 
-                        buildDateSpecification(
-                                request
-                        )
-                );
+                ReservationSpecifications.pricingUnit(
+                        request.pricingUnitId()
+                ),
+
+                buildDateSpecification(
+                        request
+                )
+        ).filter(Objects::nonNull)
+                .toList();
+        Specification<Reservation> specification = Specification.allOf(specifications);
 
         return reservationRepository
                 .findAll(
@@ -450,7 +450,6 @@ public class ReservationServiceImpl implements ReservationService {
         User user = currentUserService.getCurrentUser();
         List<Reservation> reservations = reservationRepository.findByReservedBy_Id(user.getId());
         return  reservations.stream()
-//                .filter(reservation ->!(reservation.getStatus().getCode().equals("PENDING")|| reservation.getStatus().getCode().equals("CANCELLED")))
                 .map(this::toResponse)
                 .toList();
 

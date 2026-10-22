@@ -124,7 +124,6 @@ export function RoomTypeForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       {/* Basics */}
       <fieldset className="space-y-4">
-        <Legend>Basics</Legend>
 
         {fixedLocationId === undefined ? (
           <Select

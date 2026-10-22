@@ -29,7 +29,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -192,9 +194,7 @@ public class RoomBlockServiceImpl
                         "createdAt"
                 )
         );
-        Specification<RoomBlock> specification =
-                Specification.allOf(
-
+        List<Specification<RoomBlock>> specifications = Stream.of(
                         RoomBlockSpecifications.keyword(
                                 request.keyword()
                         ),
@@ -216,7 +216,10 @@ public class RoomBlockServiceImpl
                         ),
 
                         buildDateSpecification(request)
-                );
+                )
+                .filter(Objects::nonNull)
+                .toList();
+        Specification<RoomBlock> specification = Specification.allOf(specifications);
 
         return roomBlockRepository
                 .findAll(

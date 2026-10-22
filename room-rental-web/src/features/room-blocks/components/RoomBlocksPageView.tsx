@@ -58,7 +58,7 @@ export function RoomBlocksPageView({ locationId, renderCreateDialog }: Props) {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState<RoomBlockStatus | "">("");
   const [blockType, setBlockType] = useState<RoomBlockType | "">("");
-  const [date, setDate] = useState(todayString);
+  const [date, setDate] = useState('');
   const [page, setPage] = useState(0);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -155,7 +155,6 @@ export function RoomBlocksPageView({ locationId, renderCreateDialog }: Props) {
       <PageHeader
         icon={<Ban size={19} />}
         title={t("roomBlocks")}
-        description="Rooms that are temporarily unavailable for booking."
         actions={
           <Button
             leftIcon={<Plus size={17} />}

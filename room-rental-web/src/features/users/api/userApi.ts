@@ -12,7 +12,6 @@ import type {
   UserSearchParams,
 } from "../types/user";
 
-
 export interface PageResponse<T> {
   content: T[];
 
@@ -28,155 +27,77 @@ export interface PageResponse<T> {
   empty: boolean;
 }
 
-
 export const userApi = {
+  async search(params: UserSearchParams): Promise<PageResponse<UserResponse>> {
+    const response = await api.get<PageResponse<UserResponse>>("/users", {
+      params: {
+        keyword: params.keyword,
 
-  async search(
-    params: UserSearchParams
-  ): Promise<
-    PageResponse<UserResponse>
-  > {
+        status: params.status,
 
-    const response =
-      await api.get<
-        PageResponse<UserResponse>
-      >(
-        "/users",
-        {
-          params: {
-            keyword:
-              params.keyword,
+        roleId: params.roleId,
 
-            status:
-              params.status,
+        page: params.page ?? 0,
 
-            roleId:
-              params.roleId,
+        size: params.size ?? 20,
 
-            page:
-              params.page ?? 0,
-
-            size:
-              params.size ?? 20,
-
-            sort:
-              params.sort ??
-              "username,asc",
-          },
-        }
-      );
+        sort: params.sort ?? "username,asc",
+      },
+    });
 
     return response.data;
   },
 
-
-  async getById(
-    id: number
-  ): Promise<UserResponse> {
-
-    const response =
-      await api.get<UserResponse>(
-        `/users/${id}`
-      );
+  async getById(id: number): Promise<UserResponse> {
+    const response = await api.get<UserResponse>(`/users/${id}`);
 
     return response.data;
   },
 
-
-  async create(
-    request: CreateUserRequest
-  ): Promise<UserResponse> {
-
-    const response =
-      await api.post<UserResponse>(
-        "/users",
-        request
-      );
+  async create(request: CreateUserRequest): Promise<UserResponse> {
+    const response = await api.post<UserResponse>("/users", request);
 
     return response.data;
   },
 
-
-  async update(
-    id: number,
-    request: UpdateUserRequest
-  ): Promise<UserResponse> {
-
-    const response =
-      await api.put<UserResponse>(
-        `/users/${id}`,
-        request
-      );
+  async update(id: number, request: UpdateUserRequest): Promise<UserResponse> {
+    const response = await api.put<UserResponse>(`/users/${id}`, request);
 
     return response.data;
   },
-
 
   async assignRoles(
     id: number,
-    request: AssignRolesRequest
+    request: AssignRolesRequest,
   ): Promise<UserResponse> {
-
-    const response =
-      await api.put<UserResponse>(
-        `/users/${id}/roles`,
-        request
-      );
+    const response = await api.put<UserResponse>(`/users/${id}/roles`, request);
 
     return response.data;
   },
 
-
   async changePassword(
     id: number,
-    request: ChangePasswordRequest
+    request: ChangePasswordRequest,
   ): Promise<void> {
-
-    await api.put(
-      `/users/${id}/password`,
-      request
-    );
+    await api.put(`/users/${id}/password`, request);
   },
-
 
   async resetPassword(
     id: number,
-    request: ResetPasswordRequest
+    request: ResetPasswordRequest,
   ): Promise<void> {
-
-    await api.put(
-      `/users/${id}/password/reset`,
-      request
-    );
+    await api.put(`/users/${id}/password/reset`, request);
   },
 
-
-  async lock(
-    id: number
-  ): Promise<void> {
-
-    await api.post(
-      `/users/${id}/lock`
-    );
+  async lock(id: number): Promise<void> {
+    await api.post(`/users/${id}/lock`);
   },
 
-
-  async unlock(
-    id: number
-  ): Promise<void> {
-
-    await api.post(
-      `/users/${id}/unlock`
-    );
+  async unlock(id: number): Promise<void> {
+    await api.post(`/users/${id}/unlock`);
   },
 
-
-  async deactivate(
-    id: number
-  ): Promise<void> {
-
-    await api.post(
-      `/users/${id}/deactivate`
-    );
+  async deactivate(id: number): Promise<void> {
+    await api.post(`/users/${id}/deactivate`);
   },
 };

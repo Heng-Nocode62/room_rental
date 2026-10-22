@@ -299,7 +299,6 @@ export default function OwnerRoomTypePage() {
       <PageHeader
         icon={<Sparkles size={19} />}
         title={t("roomTypes")}
-        description={`Manage room types for ${currentLocation.name}.`}
         actions={
           <Button leftIcon={<Plus size={17} />} onClick={openCreate}>
             Add room type

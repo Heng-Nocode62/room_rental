@@ -1,6 +1,5 @@
 package com.heng.roomrental.room.entity;
 
-
 import com.heng.roomrental.audit.annotation.Auditable;
 import com.heng.roomrental.common.entity.BaseEntity;
 import com.heng.roomrental.location.entity.Location;
@@ -13,13 +12,13 @@ import java.util.List;
 
 @Entity
 @Table(
-    name = "rooms",
-    uniqueConstraints = {
-        @UniqueConstraint(
-            name = "uq_rooms_location_number",
-            columnNames = {"location_id", "room_number"}
-        )
-    }
+        name = "rooms",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uq_rooms_location_number",
+                        columnNames = {"location_id", "room_number"}
+                )
+        }
 )
 @Getter
 @Setter
@@ -28,17 +27,17 @@ public class Room extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-        name = "location_id",
-        nullable = false,
-        foreignKey = @ForeignKey(name = "fk_rooms_location")
+            name = "location_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_rooms_location")
     )
     private Location location;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-        name = "room_type_id",
-        nullable = false,
-        foreignKey = @ForeignKey(name = "fk_rooms_room_type")
+            name = "room_type_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_rooms_room_type")
     )
     private RoomType roomType;
 
@@ -54,14 +53,17 @@ public class Room extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private RoomStatus status;
 
     @OneToMany(
-        mappedBy = "room",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
+            mappedBy = "room",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
     )
     private List<RoomAmenity> amenities = new ArrayList<>();
 }

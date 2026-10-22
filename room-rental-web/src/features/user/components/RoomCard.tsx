@@ -12,7 +12,7 @@ export function RoomCard({
   effectiveDate,
 }: {
   room: RoomResponse;
-  /** Used only as a temporary image source until imageUrl moves to Room. */
+  /** Room-type image is used as a fallback when the room has no image. */
   roomType?: RoomTypeResponse;
   /** Date selected in Browse Rooms; defaults to today on the dashboard. */
   effectiveDate?: string;
@@ -48,9 +48,9 @@ export function RoomCard({
     >
       <Link to={`/user/rooms/${room.id}`} className="block">
         <div className="relative aspect-[16/9] overflow-hidden bg-slate-100 dark:bg-slate-800">
-          {roomType?.imageUrl ? (
+          {room.imageUrl || roomType?.imageUrl ? (
             <img
-              src={roomType.imageUrl}
+              src={room.imageUrl || roomType?.imageUrl || ""}
               alt={room.name}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />

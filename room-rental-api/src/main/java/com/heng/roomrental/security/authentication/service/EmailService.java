@@ -31,4 +31,23 @@ public class EmailService {
 
         mailSender.send(message);
     }
+
+    public void sendPasswordResetOtp(String email, String otp) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("Reset your password");
+        message.setText("""
+                Hello,
+
+                Your password reset code is:
+
+                %s
+
+                This code expires in 10 minutes. You can request a new code if it expires.
+                If you did not request a password reset, you can ignore this email.
+
+                For your security, do not share this code with anyone.
+                """.formatted(otp));
+        mailSender.send(message);
+    }
 }

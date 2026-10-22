@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../../auth/hooks/useCurrentUser";
 import { useOperatingHours } from "../../locations/hooks/useOperatingHours";
 import { roomPriceApi } from "../../pricing/api/roomPriceApi";
-import { useCalculatePrice } from "../../pricing/hooks/useCalculatePrice";
 import { useCreateReservation } from "../../reservations/hooks/useCreateReservation";
 import { useDayAvailability } from "../../availability/hooks/useDayAvailability";
 
@@ -31,6 +30,11 @@ interface BookingDialogProps {
 
   onCreated?: (reservationId: number) => void;
 }
+
+const round2 = (value: number) => Math.round(value * 100) / 100;
+
+const formatUnits = (value: number) =>
+  Number.isInteger(value) ? String(value) : value.toFixed(2);
 
 export function BookingDialog({
   open,
@@ -146,8 +150,6 @@ export function BookingDialog({
     endMonthAvailability.data,
   ]);
 
-  const priceCalculation = useCalculatePrice();
-
   const create = useCreateReservation();
 
   useEffect(() => {
@@ -167,8 +169,6 @@ export function BookingDialog({
     setCompanyName("");
     setNotes("");
     setAmenities([]);
-
-    priceCalculation.reset();
   }, [open, initialDate, initialStartTime, initialEndTime, user?.id]);
 
   const availablePrices = useMemo(
@@ -237,78 +237,107 @@ export function BookingDialog({
     [hours.data, endDate],
   );
 
-  useEffect(() => {
-    if (!open || !selectedPrice) return;
+  /**
+   * Frontend price preview (display only — nothing here is sent to the backend).
+   *  - HOURLY: hourly price × hours between start and end time
+   *  - DAILY:  daily price × number of days (start and end date inclusive)
+   *  - Extras: amenity price × selected quantity
+   * The backend still validates and decides the real total when the reservation is created.
+   */
+  const pricePreview = useMemo(() => {
+    if (!selectedPrice) return null;
 
-    let startAt: string;
-    let endAt: string;
+    let units: number;
+    let unitLabel: string;
 
     if (selectedPrice.pricingUnitCode === "HOURLY") {
-      if (!startTime || !endTime) {
-        priceCalculation.reset();
-        return;
-      }
+      if (!startTime || !endTime) return null;
 
-      startAt = DateTime.fromISO(`${date}T${startTime}`, { zone: timezone })
-        .toUTC()
-        .toISO()!;
+      const start = DateTime.fromISO(`${date}T${startTime}`, { zone: timezone });
+      const end = DateTime.fromISO(`${date}T${endTime}`, { zone: timezone });
+      if (!start.isValid || !end.isValid) return null;
 
-      endAt = DateTime.fromISO(`${date}T${endTime}`, { zone: timezone })
-        .toUTC()
-        .toISO()!;
+      units = end.diff(start, "hours").hours;
+      if (units <= 0) return null;
+      unitLabel = units === 1 ? "hour" : "hours";
     } else {
-      if (!startHours?.openTime || !endHours?.closeTime || endDate < date) {
-        priceCalculation.reset();
-        return;
-      }
+      const start = DateTime.fromISO(date);
+      const end = DateTime.fromISO(endDate);
+      if (!start.isValid || !end.isValid || endDate < date) return null;
 
-      startAt = DateTime.fromISO(`${date}T${startHours.openTime.slice(0, 5)}`, {
-        zone: timezone,
-      })
-        .toUTC()
-        .toISO()!;
-
-      endAt = DateTime.fromISO(`${endDate}T${endHours.closeTime.slice(0, 5)}`, {
-        zone: timezone,
-      })
-        .toUTC()
-        .toISO()!;
+      units = Math.round(end.diff(start, "days").days) + 1;
+      unitLabel = units === 1 ? "day" : "days";
     }
 
-    priceCalculation.mutate({
-      roomId: room.id,
-      pricingUnitId: selectedPrice.pricingUnitId,
-      startAt,
-      endAt,
-    });
+    const roomAmount = round2(selectedPrice.price * units);
+
+    const extras = amenities
+      .map((selected) => {
+        const amenity = room.amenities.find(
+          (item) => item.amenityId === selected.amenityId,
+        );
+        if (!amenity || selected.quantity <= 0) return null;
+        return {
+          id: amenity.amenityId,
+          name: amenity.name,
+          quantity: selected.quantity,
+          unitPrice: amenity.price,
+          amount: round2(amenity.price * selected.quantity),
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    const extrasTotal = round2(
+      extras.reduce((sum, item) => sum + item.amount, 0),
+    );
+
+    return {
+      unitPrice: selectedPrice.price,
+      units,
+      unitLabel,
+      roomAmount,
+      extras,
+      total: round2(roomAmount + extrasTotal),
+      currency: selectedPrice.currencyCode,
+    };
   }, [
-    open,
-    room.id,
-    selectedPrice?.pricingUnitId,
-    selectedPrice?.pricingUnitCode,
+    selectedPrice,
     date,
     endDate,
     startTime,
     endTime,
     timezone,
-    startHours?.openTime,
-    endHours?.closeTime,
+    amenities,
+    room.amenities,
   ]);
+
+  // The reservation must start in the future. Hourly uses the chosen start
+  // time; daily starts at the opening time of the first day.
+  const startsInFuture = useMemo(() => {
+    const startClock =
+      pricingUnitCode === "DAILY"
+        ? startHours?.openTime?.slice(0, 5)
+        : startTime;
+    if (!date || !startClock) return false;
+    return (
+      DateTime.fromISO(`${date}T${startClock}`, { zone: timezone }) >
+      DateTime.now()
+    );
+  }, [pricingUnitCode, date, startTime, startHours?.openTime, timezone]);
 
   const canSubmit =
     !!selectedPrice &&
     !!purpose.trim() &&
     !!contactName.trim() &&
     (pricingUnitCode === "DAILY"
-      ? !!date && !!endDate && endDate >= date && !!startHours && !!endHours
+      ? !!date &&
+        !!endDate &&
+        endDate >= date &&
+        !!startHours &&
+        !!endHours &&
+        rangeFullyFree
       : !!date && !!startTime && !!endTime && endTime > startTime) &&
-    !!date &&
-    !!startTime &&
-    !!endTime &&
-    endTime > startTime &&
-    // TODO rangeFullyFree &&
-    DateTime.fromISO(`${date}T${startTime}`, { zone: timezone }) >
-      DateTime.now();
+    startsInFuture;
 
   const addAmenity = (amenityId: number, quantity: number) => {
     setAmenities((current) => {
@@ -410,10 +439,10 @@ export function BookingDialog({
         <Card className="overflow-hidden">
           <div className="flex flex-col sm:flex-row">
             <div className="h-40 w-full sm:w-48">
-              {roomType?.imageUrl ? (
+              {room.imageUrl || roomType?.imageUrl ? (
                 <img
-                  src={roomType.imageUrl}
-                  alt={roomType.name}
+                  src={room.imageUrl || roomType?.imageUrl || ""}
+                  alt={room.name}
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -664,27 +693,62 @@ export function BookingDialog({
           </div>
         )}
 
-        {/* PRICE */}
+        {/* PRICE PREVIEW (calculated in the browser) */}
 
-        {priceCalculation.data && (
+        {pricePreview ? (
           <Card className="border-blue-100 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  Estimated total
-                </p>
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Price preview
+            </p>
 
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Final total is validated when the reservation is created.
-                </p>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex items-start justify-between gap-4">
+                <dt className="min-w-0 text-slate-600 dark:text-slate-300">
+                  {pricePreview.unitPrice.toFixed(2)} ×{" "}
+                  {formatUnits(pricePreview.units)} {pricePreview.unitLabel}
+                </dt>
+                <dd className="shrink-0 font-semibold text-slate-900 dark:text-white">
+                  {pricePreview.roomAmount.toFixed(2)}
+                </dd>
               </div>
 
+              {pricePreview.extras.map((extra) => (
+                <div
+                  key={extra.id}
+                  className="flex items-start justify-between gap-4"
+                >
+                  <dt className="min-w-0 text-slate-600 dark:text-slate-300">
+                    {extra.name} × {extra.quantity}
+                  </dt>
+                  <dd className="shrink-0 font-semibold text-slate-900 dark:text-white">
+                    {extra.amount.toFixed(2)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="mt-3 flex items-center justify-between gap-4 border-t border-blue-200/70 pt-3 dark:border-blue-900/50">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                Estimated total
+              </p>
               <p className="text-xl font-black text-slate-950 dark:text-white">
-                {priceCalculation.data.totalAmount.toFixed(2)}{" "}
-                {priceCalculation.data.currencyCode}
+                {pricePreview.total.toFixed(2)} {pricePreview.currency}
               </p>
             </div>
+
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              This is an estimate. The final total is confirmed when the
+              reservation is created.
+            </p>
           </Card>
+        ) : (
+          selectedPrice && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {pricingUnitCode === "HOURLY"
+                ? "Select a start and end time to see the price."
+                : "Select valid start and end dates to see the price."}
+            </p>
+          )
         )}
 
         {availability.data &&

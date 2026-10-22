@@ -127,6 +127,13 @@ public class NavigationServiceImpl implements NavigationService {
                 "settings",
                 "USER_VIEW"
         ));
+        items.add(item(
+                "navigation.permissions",
+                "/permissions",
+                "ShieldCheck",
+                "settings",
+                "PERMISSION_VIEW"
+        ));
 
         items.add(item(
                 "navigation.roles",
@@ -135,6 +142,14 @@ public class NavigationServiceImpl implements NavigationService {
                 "settings",
                 "ROLE_VIEW"
         ));
+        items.add(item(
+                "navigation.userLocationRoles",
+                "/user-location-roles",
+                "ShieldCheck",
+                "settings",
+                "ROLE_VIEW"
+        ));
+
 
         items.add(item(
                 "navigation.auditLogs",
@@ -143,6 +158,7 @@ public class NavigationServiceImpl implements NavigationService {
                 "settings",
                 "AUDIT_VIEW"
         ));
+
 
         items.add(item(
                 "navigation.languages",

@@ -126,11 +126,6 @@ export function ReservationFilters({
             <h2 className="text-sm font-semibold text-slate-800">
               Filter reservations
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500">
-              {locationIsFixed
-                ? "Reservations are scoped to your selected location."
-                : "Narrow results by location, room, pricing unit, status, or date."}
-            </p>
           </div>
 
           {onClearFilters && (

@@ -8,12 +8,15 @@ import {
   Modal,
   PageHeader,
   Pagination,
+  Select,
 } from "../../../components/ui";
 import { useLocationScope } from "../../location-scope/LocationScopeProvider";
 import { useLocationAmenities } from "../../rooms/hooks/useLocationAmenities";
 import { useRooms } from "../../rooms/hooks/useRooms";
+import { useRoom } from "../../rooms/hooks/useRoom";
 import { useCreateRoom } from "../../rooms/hooks/useCreateRoom";
 import { useUpdateRoom } from "../../rooms/hooks/useUpdateRoom";
+import { useUpdateRoomImage } from "../../rooms/hooks/useUpdateRoomImage";
 import { useDeactivateRoom } from "../../rooms/hooks/useDeactivateRoom";
 import { useDebouncedValue } from "../../rooms/hooks/useDebouncedValue";
 
@@ -29,6 +32,18 @@ import type {
   RoomStatus,
 } from "../../rooms/types/room";
 import { useRoomTypesByLocation } from "../../room-types/hooks/useRoomTypesByLocation.ts";
+import { getErrorMessage } from "../../rooms/utils/roomUtils";
+import type { RoomFormValues } from "../../rooms/components/RoomForm";
+
+const DEFAULT_SIZE = 20;
+const DEFAULT_SORT = "roomNumber,asc";
+
+const PAGE_SIZES = [10, 20, 50, 100];
+
+const SORT_OPTIONS = [
+  { value: "roomNumber,asc", label: "Room number (A–Z)" },
+  { value: "roomNumber,desc", label: "Room number (Z–A)" },
+];
 
 export default function OwnerRoomsPage() {
   const scope = useLocationScope();
@@ -41,11 +56,14 @@ export default function OwnerRoomsPage() {
   const [maxCapacity, setMaxCapacity] = useState("");
   const [amenityId, setAmenityId] = useState("");
   const [page, setPage] = useState(0);
+  const [size, setSize] = useState(DEFAULT_SIZE);
+  const [sort, setSort] = useState(DEFAULT_SORT);
 
   const [dialog, setDialog] = useState<
     "create" | "edit" | "view" | "amenities" | null
   >(null);
   const [selected, setSelected] = useState<RoomResponse | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const debouncedKeyword = useDebouncedValue(keyword, 350);
 
@@ -56,6 +74,7 @@ export default function OwnerRoomsPage() {
 
   const create = useCreateRoom();
   const update = useUpdateRoom();
+  const updateImage = useUpdateRoomImage();
   const deactivate = useDeactivateRoom();
 
   // Reset filters tied to the previous location.
@@ -80,17 +99,33 @@ export default function OwnerRoomsPage() {
     maxCapacity: maxCapacity ? Number(maxCapacity) : undefined,
     amenityId: amenityId ? Number(amenityId) : undefined,
     page,
-    size: 20,
-    sort: "roomNumber,asc",
+    size,
+    sort,
   };
 
   const rooms = useRooms(roomParams, Boolean(locationId));
 
-  const liveAmenitiesRoom =
-    (selected && rooms.data?.content.find((room) => room.id === selected.id)) ||
-    selected;
+  // Fetched by id, so the amenities modal is independent of the list's
+  // filters and paging and never shows a stale snapshot.
+  const { data: amenitiesRoom } = useRoom(
+    //change later
+    dialog === "amenities" ? (selected!.id ) : 0,
+  );
+
+  // If the current page becomes empty (e.g. the last row on it was
+  // deactivated under the Active filter), step back one page.
+  useEffect(() => {
+    if (rooms.data && rooms.data.empty && page > 0) {
+      setPage((current) => Math.max(0, current - 1));
+    }
+  }, [rooms.data, page]);
 
   const resetPage = () => setPage(0);
+
+  const changePage = (next: number) => {
+    setPage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const clearFilters = () => {
     setKeyword("");
@@ -105,38 +140,86 @@ export default function OwnerRoomsPage() {
   const close = () => {
     setDialog(null);
     setSelected(null);
+    setFormError(null);
   };
 
-  const submit = async (values: any) => {
-    if (dialog === "edit" && selected) {
-      await update.mutateAsync({
-        id: selected.id,
-        request: {
+  const submit = async (values: RoomFormValues) => {
+    setFormError(null);
+
+    try {
+      if (dialog === "edit" && selected) {
+        await update.mutateAsync({
+          id: selected.id,
+          request: {
+            name: values.name.trim(),
+            floor: values.floor.trim() || undefined,
+            description: values.description.trim() || undefined,
+            hourlyPrice: Number(values.hourlyPrice ?? 0),
+            dailyPrice: Number(values.dailyPrice ?? 0),
+          },
+        });
+
+        if (values.image) {
+          try {
+            await updateImage.mutateAsync({
+              id: selected.id,
+              image: values.image,
+            });
+          } catch (imageError) {
+            setFormError(
+              getErrorMessage(
+                imageError,
+                "Room details were saved, but the image upload failed. Please try again.",
+              ),
+            );
+            return;
+          }
+        }
+      } else if (locationId) {
+        const created = await create.mutateAsync({
+          locationId,
+          roomTypeId: Number(values.roomTypeId),
+          roomNumber: values.roomNumber.trim(),
           name: values.name.trim(),
           floor: values.floor.trim() || undefined,
           description: values.description.trim() || undefined,
           hourlyPrice: Number(values.hourlyPrice ?? 0),
           dailyPrice: Number(values.dailyPrice ?? 0),
-        },
-      });
-    } else if (locationId) {
-      await create.mutateAsync({
-        locationId,
-        roomTypeId: Number(values.roomTypeId),
-        roomNumber: values.roomNumber.trim(),
-        name: values.name.trim(),
-        floor: values.floor.trim() || undefined,
-        description: values.description.trim() || undefined,
-        hourlyPrice: Number(values.hourlyPrice ?? 0),
-        dailyPrice: Number(values.dailyPrice ?? 0),
-        amenities: (values.amenities ?? []).map((item: any) => ({
-          amenityId: Number(item.amenityId),
-          amount: Number(item.amount),
-        })),
-      });
-    }
+          amenities: (values.amenities ?? []).map((item) => ({
+            amenityId: Number(item.amenityId),
+            amount: Number(item.amount),
+          })),
+        });
 
-    close();
+        if (values.image) {
+          try {
+            await updateImage.mutateAsync({
+              id: created.id,
+              image: values.image,
+            });
+          } catch (imageError) {
+            setSelected(created);
+            setDialog("edit");
+            setFormError(
+              getErrorMessage(
+                imageError,
+                "The room was created, but its image could not be uploaded. Choose the image again and save changes.",
+              ),
+            );
+            return;
+          }
+        }
+      }
+
+      close();
+    } catch (error) {
+      setFormError(
+        getErrorMessage(
+          error,
+          "Unable to save the room. Please check the values and try again.",
+        ),
+      );
+    }
   };
 
   if (scope.isLoading || roomTypes.isLoading) {
@@ -153,13 +236,22 @@ export default function OwnerRoomsPage() {
   }
 
   const items = rooms.data?.content ?? [];
+  const totalElements = rooms.data?.totalElements;
+  const firstItem =
+    rooms.data && !rooms.data.empty
+      ? rooms.data.page * rooms.data.size + 1
+      : 0;
+  const lastItem = rooms.data ? firstItem + items.length - 1 : 0;
+
+  // Full-page spinner only on the very first load. On page/size/sort changes
+  // the previous results stay visible (needs keepPreviousData in useRooms).
+  const initialLoading = rooms.isLoading && !rooms.data;
 
   return (
     <div className="mx-auto w-full max-w-[1500px] space-y-6">
       <PageHeader
         icon={<DoorOpen size={19} />}
         title="Rooms"
-        description={`Manage rooms for ${scope.currentLocation.name}.`}
         actions={
           <Button
             leftIcon={<Plus size={17} />}
@@ -215,7 +307,7 @@ export default function OwnerRoomsPage() {
         />
       </Card>
 
-      {rooms.isLoading && <LoadingState />}
+      {initialLoading && <LoadingState />}
 
       {rooms.isError && (
         <EmptyState
@@ -229,7 +321,7 @@ export default function OwnerRoomsPage() {
         />
       )}
 
-      {!rooms.isLoading && !rooms.isError && rooms.data?.empty && (
+      {!initialLoading && !rooms.isError && rooms.data?.empty && page === 0 && (
         <EmptyState
           title="No rooms found"
           description="No rooms match the current filters."
@@ -241,11 +333,59 @@ export default function OwnerRoomsPage() {
         />
       )}
 
-      {!rooms.isLoading &&
+      {!initialLoading &&
         !rooms.isError &&
         rooms.data &&
         !rooms.data.empty && (
-          <>
+          <div
+            className={[
+              "space-y-4 transition-opacity",
+              rooms.isFetching ? "opacity-60" : "opacity-100",
+            ].join(" ")}
+            aria-busy={rooms.isFetching}
+          >
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <p className="text-sm text-slate-500">
+                Showing{" "}
+                <span className="font-medium text-slate-800">
+                  {firstItem}–{lastItem}
+                </span>{" "}
+                of{" "}
+                <span className="font-medium text-slate-800">
+                  {totalElements}
+                </span>
+              </p>
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="w-48">
+                  <Select
+                    label="Sort by"
+                    value={sort}
+                    onChange={(event) => {
+                      setSort(event.target.value);
+                      resetPage();
+                    }}
+                    options={SORT_OPTIONS}
+                  />
+                </div>
+
+                <div className="w-32">
+                  <Select
+                    label="Per page"
+                    value={String(size)}
+                    onChange={(event) => {
+                      setSize(Number(event.target.value));
+                      resetPage();
+                    }}
+                    options={PAGE_SIZES.map((n) => ({
+                      value: String(n),
+                      label: String(n),
+                    }))}
+                  />
+                </div>
+              </div>
+            </div>
+
             <Card className="overflow-hidden p-0">
               <RoomTable
                 rooms={items}
@@ -269,8 +409,8 @@ export default function OwnerRoomsPage() {
               />
             </Card>
 
-            <Pagination pagination={rooms.data} onPageChange={setPage} />
-          </>
+            <Pagination pagination={rooms.data} onPageChange={changePage} />
+          </div>
         )}
 
       <Modal
@@ -294,6 +434,7 @@ export default function OwnerRoomsPage() {
                   name: selected.name,
                   floor: selected.floor ?? "",
                   description: selected.description ?? "",
+                  imageUrl: selected.imageUrl,
                   hourlyPrice:
                     selected.prices.find(
                       (price) => price.pricingUnitCode === "HOURLY",
@@ -311,15 +452,10 @@ export default function OwnerRoomsPage() {
               : undefined
           }
           onSubmit={submit}
-          loading={create.isPending || update.isPending}
+          loading={create.isPending || update.isPending || updateImage.isPending}
+          error={formError}
           fixedLocationId={locationId}
         />
-
-        {(create.isError || update.isError) && (
-          <p className="mt-3 text-sm text-rose-600">
-            Unable to save the room. Please check the values and try again.
-          </p>
-        )}
       </Modal>
 
       <Modal
@@ -334,6 +470,13 @@ export default function OwnerRoomsPage() {
       >
         {selected && (
           <div className="space-y-6">
+            {selected.imageUrl && (
+              <img
+                src={selected.imageUrl}
+                alt={selected.name}
+                className="max-h-72 w-full rounded-xl object-cover"
+              />
+            )}
             <div className="flex items-center justify-between">
               <RoomStatusBadge status={selected.status} />
               <span className="text-sm text-slate-500">
@@ -422,12 +565,14 @@ export default function OwnerRoomsPage() {
         }
         size="lg"
       >
-        {liveAmenitiesRoom && (
+        {amenitiesRoom ? (
           <RoomAmenityManager
-            roomId={liveAmenitiesRoom.id}
+            roomId={amenitiesRoom.id}
             locationId={locationId}
-            currentAmenities={liveAmenitiesRoom.amenities}
+            currentAmenities={amenitiesRoom.amenities}
           />
+        ) : (
+          <LoadingState />
         )}
       </Modal>
     </div>

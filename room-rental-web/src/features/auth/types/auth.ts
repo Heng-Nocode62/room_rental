@@ -43,7 +43,7 @@ export interface ResetPasswordRequest {
 export interface UpdateMyProfileRequest {
   firstName: string;
   lastName: string;
-  phone: string | null;
+  phone: string;
 }
 
 export interface ChangeMyPasswordRequest {

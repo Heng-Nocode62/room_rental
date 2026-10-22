@@ -35,6 +35,16 @@ export function RoomDetailDialog({
     >
       {room && (
         <div className="space-y-6">
+          {room.imageUrl && (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              <img
+                src={room.imageUrl}
+                alt={room.name}
+                className="max-h-72 w-full object-cover"
+              />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <RoomStatusBadge status={room.status} />
 

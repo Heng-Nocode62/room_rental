@@ -25,6 +25,7 @@ public record CreateRoomRequest(
         String name,
 
         @Size(max = 50)
+        @NotNull
         String floor,
 
         String description,

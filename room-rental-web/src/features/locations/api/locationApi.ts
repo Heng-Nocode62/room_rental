@@ -1,5 +1,3 @@
-
-
 import { api } from "../../../lib/axios";
 
 import type {
@@ -50,6 +48,23 @@ export const locationApi = {
       await api.put<LocationResponse>(
         `/locations/${id}`,
         request
+      );
+
+    return response.data;
+  },
+
+  async updateImage(
+    id: number,
+    image: File
+  ): Promise<LocationResponse> {
+    const formData = new FormData();
+
+    formData.append("image", image);
+
+    const response =
+      await api.put<LocationResponse>(
+        `/locations/${id}/image`,
+        formData
       );
 
     return response.data;

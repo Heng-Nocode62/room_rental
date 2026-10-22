@@ -198,10 +198,8 @@ export default function AmenitiesPage() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-6">
       <PageHeader
-        eyebrow="Workspace"
         icon={<Tag size={19} />}
         title="Amenities"
-        description="Manage location-specific amenities, pricing, and stock."
         actions={
           <Button
             leftIcon={<Plus size={17} />}

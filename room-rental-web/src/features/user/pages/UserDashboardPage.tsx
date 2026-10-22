@@ -20,17 +20,85 @@ const START_TIMES = [
 ];
 const DURATIONS = [1, 2, 3, 4, 5, 6, 8];
 
-const fieldClass =
-  "w-full appearance-none rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-slate-800 outline-none transition " +
+/* 44px tall controls = comfortable tap targets on touch screens. */
+const fieldBase =
+  "h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white text-sm font-medium text-slate-800 outline-none transition " +
   "focus:border-blue-400 focus:ring-4 focus:ring-blue-400/20 " +
   "dark:border-slate-700 dark:bg-slate-800 dark:text-white";
+const selectWithIcon = `${fieldBase} pl-9 pr-9`;
+const selectPlain = `${fieldBase} pl-3 pr-9`;
+const dateField = `${fieldBase} pl-9 pr-3 [color-scheme:light] dark:[color-scheme:dark]`;
 
 const roomGridClass =
-  "grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4";
+  "grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-4";
 
-/* ─────────────────────────────────────────────
-   Small building blocks
-───────────────────────────────────────────── */
+function getGreeting() {
+  const hour = DateTime.now().hour;
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/* ─── Small building blocks ──────────────────────────────── */
+function ChevronDown() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  icon,
+  chevron,
+  className,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  icon?: ReactNode;
+  chevron?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <label
+        htmlFor={htmlFor}
+        className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-slate-400"
+      >
+        {label}
+      </label>
+      <div className="relative">
+        {icon && (
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+            {icon}
+          </span>
+        )}
+        {children}
+        {chevron && (
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <ChevronDown />
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SectionHeader({
   title,
   description,
@@ -43,7 +111,7 @@ function SectionHeader({
   actionTo: string;
 }) {
   return (
-    <div className="flex items-end justify-between gap-4">
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
       <div className="min-w-0">
         <h2 className="text-xl font-bold tracking-tight text-slate-950 dark:text-white">
           {title}
@@ -73,18 +141,33 @@ function StatItem({
   icon: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 px-5 py-4">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
+    <div className="flex min-w-0 flex-col items-start gap-2.5 p-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-5 sm:py-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 sm:h-10 sm:w-10">
         {icon}
       </span>
       <div className="min-w-0">
         <p className="text-xl font-bold leading-none tracking-tight text-slate-950 dark:text-white">
           {value}
         </p>
-        <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-xs leading-tight text-slate-500 dark:text-slate-400">
           {label}
         </p>
       </div>
+    </div>
+  );
+}
+
+function StateMessage({
+  children,
+  action,
+}: {
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+      <p>{children}</p>
+      {action}
     </div>
   );
 }
@@ -118,11 +201,11 @@ function UpcomingBooking({
       aria-label="Your next booking"
       className="overflow-hidden rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-500/30 dark:bg-blue-500/10"
     >
-      <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
         <div className="flex min-w-0 items-center gap-4">
           {/* Date tile */}
           <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-            <span className="text-[11px] font-medium leading-none opacity-80">
+            <span className="text-[11px] font-medium uppercase leading-none opacity-80">
               {start.toFormat("MMM")}
             </span>
             <span className="mt-1 text-2xl font-bold leading-none">
@@ -131,7 +214,7 @@ function UpcomingBooking({
           </div>
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <p className="text-xs font-semibold text-blue-700 dark:text-blue-300">
                 Your next booking · {relativeDayLabel(start)}
               </p>
@@ -154,15 +237,15 @@ function UpcomingBooking({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:gap-3">
           {moreCount > 0 && (
-            <span className="text-xs text-slate-500 dark:text-slate-400">
+            <span className="text-center text-xs text-slate-500 dark:text-slate-400">
               +{moreCount} more upcoming
             </span>
           )}
           <Link
             to="/user/reservations"
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm ring-1 ring-blue-200 transition hover:bg-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-500/30 dark:hover:bg-slate-800"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-blue-700 shadow-sm ring-1 ring-blue-200 transition hover:bg-blue-100 dark:bg-slate-900 dark:text-blue-300 dark:ring-blue-500/30 dark:hover:bg-slate-800"
           >
             View bookings
             <Icon name="arrow-right" size={15} />
@@ -179,8 +262,20 @@ function RoomSkeletons({ count }: { count: number }) {
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className="h-72 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800"
-        />
+          // Fewer placeholders on small screens so the page doesn't look endless.
+          className={cn(
+            "overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900",
+            index >= 2 && index < 4 && "hidden sm:block",
+            index >= 4 && "hidden lg:block",
+          )}
+        >
+          <div className="h-40 animate-pulse bg-slate-200 dark:bg-slate-800" />
+          <div className="space-y-3 p-4">
+            <div className="h-4 w-2/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -194,7 +289,7 @@ export default function UserDashboardPage() {
   const today = DateTime.now().toISODate() ?? "";
 
   const { data: user } = useCurrentUser();
-  const { data: locations = [] } = useLocations();
+  const { data: locations = [], isLoading: locationsLoading } = useLocations();
   const { data: roomTypes = [] } = useRoomTypes();
   const reservations = useMyReservations();
 
@@ -236,6 +331,7 @@ export default function UserDashboardPage() {
 
   const search = (event: FormEvent) => {
     event.preventDefault();
+    if (!date) return;
     const params = new URLSearchParams({ date, startTime, durationHours });
     if (locationId) params.set("locationId", locationId);
     navigate(`/user/rooms?${params.toString()}`);
@@ -246,82 +342,97 @@ export default function UserDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      {/* ── Hero: greeting + search ── */}
-      <header className="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-          <h1 className="max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-slate-950 dark:text-white sm:text-4xl">
+      {/* ── Hero: greeting ── */}
+      <header className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 pb-24 pt-8 sm:pt-10 lg:pt-12">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-10 left-1/3 h-40 w-40 rounded-full bg-white/5" />
+
+        <div className="relative mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-8">
+          <h1 className="max-w-3xl text-2xl font-extrabold leading-tight tracking-tight text-white sm:text-3xl lg:text-4xl">
             {user?.firstName
-              ? `Welcome back, ${user.firstName}`
+              ? `${getGreeting()}, ${user.firstName}`
               : "Find a room for your next meeting"}
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-300">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-blue-100 sm:text-base">
             Pick a date and time to see which rooms are free.
           </p>
+        </div>
+      </header>
 
-          <form
-            onSubmit={search}
-            className="mt-6 w-full max-w-5xl rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-950"
-          >
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_0.9fr_0.8fr_auto]">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <Icon name="map-pin" size={15} />
-                </span>
-                <select
-                  aria-label="Location"
-                  value={locationId}
-                  onChange={(e) => setLocationId(e.target.value)}
-                  className={fieldClass}
-                >
-                  <option value="">All locations</option>
-                  {activeLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <Icon name="calendar" size={15} />
-                </span>
-                <input
-                  aria-label="Date"
-                  type="date"
-                  value={date}
-                  min={today}
-                  onChange={(e) => setDate(e.target.value)}
-                  className={cn(
-                    fieldClass,
-                    "[color-scheme:light] dark:[color-scheme:dark]",
-                  )}
-                />
-              </div>
-
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <Icon name="clock" size={15} />
-                </span>
-                <select
-                  aria-label="Start time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className={fieldClass}
-                >
-                  {START_TIMES.map((time) => (
-                    <option key={time} value={time}>
-                      {DateTime.fromFormat(time, "HH:mm").toFormat("hh:mm a")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+      {/* ── Body ── */}
+      <main className="relative z-10 mx-auto -mt-16 max-w-[1440px] space-y-8 px-4 pb-10 sm:space-y-10 sm:px-6 lg:px-8">
+        {/* Search card — overlaps the hero */}
+        <form
+          onSubmit={search}
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-900 sm:p-5"
+        >
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-[1.3fr_1fr_0.9fr_0.8fr_auto] lg:items-end">
+            <Field
+              label="Location"
+              htmlFor="dash-location"
+              icon={<Icon name="map-pin" size={15} />}
+              chevron
+              className="col-span-2 sm:col-span-1"
+            >
               <select
-                aria-label="Duration"
+                id="dash-location"
+                value={locationId}
+                disabled={locationsLoading}
+                onChange={(e) => setLocationId(e.target.value)}
+                className={selectWithIcon}
+              >
+                <option value="">All locations</option>
+                {activeLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field
+              label="Date"
+              htmlFor="dash-date"
+              icon={<Icon name="calendar" size={15} />}
+              className="col-span-2 sm:col-span-1"
+            >
+              <input
+                id="dash-date"
+                type="date"
+                required
+                value={date}
+                min={today}
+                onChange={(e) => setDate(e.target.value)}
+                className={dateField}
+              />
+            </Field>
+
+            <Field
+              label="Start time"
+              htmlFor="dash-start"
+              icon={<Icon name="clock" size={15} />}
+              chevron
+            >
+              <select
+                id="dash-start"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className={selectWithIcon}
+              >
+                {START_TIMES.map((time) => (
+                  <option key={time} value={time}>
+                    {DateTime.fromFormat(time, "HH:mm").toFormat("hh:mm a")}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Duration" htmlFor="dash-duration" chevron>
+              <select
+                id="dash-duration"
                 value={durationHours}
                 onChange={(e) => setDurationHours(e.target.value)}
-                className={cn(fieldClass, "pl-3")}
+                className={selectPlain}
               >
                 {DURATIONS.map((hours) => (
                   <option key={hours} value={hours}>
@@ -329,21 +440,18 @@ export default function UserDashboardPage() {
                   </option>
                 ))}
               </select>
+            </Field>
 
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-500/30 active:scale-[0.98]"
-              >
-                <Icon name="search" size={15} />
-                Find rooms
-              </button>
-            </div>
-          </form>
-        </div>
-      </header>
+            <button
+              type="submit"
+              className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/30 active:scale-[0.98] lg:col-span-1"
+            >
+              <Icon name="search" size={15} />
+              Find rooms
+            </button>
+          </div>
+        </form>
 
-      {/* ── Body ── */}
-      <main className="mx-auto max-w-[1440px] space-y-10 px-4 py-8 sm:px-6 lg:px-8">
         {upcoming[0] && (
           <UpcomingBooking
             reservation={upcoming[0]}
@@ -352,20 +460,20 @@ export default function UserDashboardPage() {
         )}
 
         {/* Stats strip */}
-        <div className="grid grid-cols-1 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-3 divide-x divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
           <StatItem
-            value={activeRoomCount}
+            value={rooms.isLoading ? "—" : activeRoomCount}
             label="Active rooms"
             icon={<Icon name="building" size={18} />}
           />
           <StatItem
-            value={activeLocations.length}
+            value={locationsLoading ? "—" : activeLocations.length}
             label="Locations"
             icon={<Icon name="map-pin" size={18} />}
           />
           <StatItem
-            value={upcoming.length}
-            label="Your upcoming bookings"
+            value={reservations.isLoading ? "—" : upcoming.length}
+            label="Upcoming bookings"
             icon={<Icon name="calendar" size={18} />}
           />
         </div>
@@ -380,11 +488,13 @@ export default function UserDashboardPage() {
           />
 
           {activeLocations.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              No locations are available right now.
-            </p>
+            <StateMessage>
+              {locationsLoading
+                ? "Loading locations…"
+                : "No locations are available right now."}
+            </StateMessage>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {activeLocations.slice(0, 3).map((location) => (
                 <LocationCard key={location.id} location={location} />
               ))}
@@ -404,13 +514,21 @@ export default function UserDashboardPage() {
           {rooms.isLoading ? (
             <RoomSkeletons count={8} />
           ) : rooms.isError ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              We couldn't load rooms. Refresh the page to try again.
-            </p>
+            <StateMessage
+              action={
+                <button
+                  type="button"
+                  onClick={() => void rooms.refetch()}
+                  className="h-10 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Try again
+                </button>
+              }
+            >
+              We couldn't load rooms.
+            </StateMessage>
           ) : roomList.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              No rooms are available right now.
-            </p>
+            <StateMessage>No rooms are available right now.</StateMessage>
           ) : (
             <div className={roomGridClass}>
               {roomList.map((room) => (

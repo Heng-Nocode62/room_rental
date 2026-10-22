@@ -18,7 +18,7 @@ import {
   cn,
 } from "../components/UserUI";
 
-import { BookingDialog } from "../components/BookingDialog";
+import { BookingDialogWithQr } from "../../payments/components/BookingDialogWithQr";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -160,7 +160,7 @@ export default function UserRoomDetailsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto max-w-[1440px] space-y-6 px-4 py-6 lg:px-8">
+      <div className="mx-auto max-w-360 space-y-6 px-4 py-6 lg:px-8">
         <Link
           to="/user/rooms"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400"
@@ -194,14 +194,14 @@ export default function UserRoomDetailsPage() {
           {/* ── Left: room info ── */}
           <div className="min-w-0 space-y-8">
             <div className="overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-800">
-              {roomType?.imageUrl ? (
+              {selectedRoom.imageUrl || roomType?.imageUrl ? (
                 <img
-                  src={roomType.imageUrl}
+                  src={selectedRoom.imageUrl || roomType?.imageUrl || ""}
                   alt={selectedRoom.name}
-                  className="aspect-[16/10] w-full object-cover"
+                  className="aspect-16/10 w-full object-cover"
                 />
               ) : (
-                <RoomPlaceholder className="aspect-[16/10] w-full" />
+                <RoomPlaceholder className="aspect-16/10 w-full" />
               )}
             </div>
 
@@ -237,7 +237,7 @@ export default function UserRoomDetailsPage() {
           </div>
 
           {/* ── Right: price + booking (sticky on desktop) ── */}
-          <aside className="lg:sticky lg:top-[84px]">
+          <aside className="lg:sticky lg:top-21">
             <Card className="overflow-hidden">
               {/* Price */}
               <div className="border-b border-slate-200 p-5 dark:border-slate-800">
@@ -469,7 +469,7 @@ export default function UserRoomDetailsPage() {
         </div>
       </div>
 
-      <BookingDialog
+      <BookingDialogWithQr
         open={bookingOpen}
         onClose={() => {
           setBookingOpen(false);

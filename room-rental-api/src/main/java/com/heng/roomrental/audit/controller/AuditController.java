@@ -89,7 +89,7 @@ public class AuditController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String direction
     ) {
-        log.info("request reach");
+
         Pageable pageable = PageRequest.of(
                 Math.max(page, 0),
                 Math.min(Math.max(size, 1), 100),
@@ -100,7 +100,6 @@ public class AuditController {
                         safeModelSort(sortBy)
                 )
         );
-        log.info("passed pageable");
         Specification<ModelLog> spec = Specification.allOf(
                 ModelLogSpecifications.userId(userId),
                 ModelLogSpecifications.modelType(modelType),
@@ -111,14 +110,11 @@ public class AuditController {
                 ModelLogSpecifications.from(from),
                 ModelLogSpecifications.to(to)
         );
-        log.info("passed specification");
 
         Page<ModelLogResponse> result =
                 modelLogRepository.findAll(spec, pageable)
                         .map(modelLogMapper::from);
 //        List<ModelLogResponse> modelLogResponses = modelLogMapper.from(result.getContent());
-        log.info("passed result");
-
 
         return AuditPageResponse.from(result);
     }

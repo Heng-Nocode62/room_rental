@@ -103,6 +103,12 @@ public class Reservation extends BaseEntity {
         foreignKey = @ForeignKey(name = "fk_reservations_cancelled_by")
     )
     private User cancelledBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "confirmed_by",
+            foreignKey = @ForeignKey(name = "fk_reservations_confirmed_by")
+    )
+    private User confirmedBy;
 
 
 

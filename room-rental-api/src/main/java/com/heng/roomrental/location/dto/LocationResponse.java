@@ -7,7 +7,12 @@ public record LocationResponse(
         String address,
         String phone,
         String timeZone,
+        Integer floor,
+        Long ownerId,
         String status,
-        long totalRooms
+        long totalRooms,
+        String imageUrl,
+        String locationBakongAccountId,
+        String telegramContact
 ) {
 }

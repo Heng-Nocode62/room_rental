@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import { Plus, Trash2 } from "../../../components/ui/MaterialIcon.tsx";
+import { Plus } from "../../../components/ui/MaterialIcon.tsx";
 
 import { Button, Input, Select } from "../../../components/ui";
 
 import { useLocationAmenities } from "../hooks/useLocationAmenities";
 import { useAddRoomAmenity } from "../hooks/useAddRoomAmenity";
-import { useRemoveRoomAmenity } from "../hooks/useRemoveRoomAmenity";
 
 import type { AmenityResponse, RoomAmenityResponse } from "../types/room";
 import { formatMoney, getErrorMessage } from "../utils/roomUtils";
+import { AssignedAmenityRow } from "./AssignedAmenityRow";
+import { QuantityStepper } from "./QuantityStepper";
 
 interface Props {
   roomId: number;
@@ -31,13 +32,14 @@ export function RoomAmenityManager({
   );
 
   const addMutation = useAddRoomAmenity();
-  const removeMutation = useRemoveRoomAmenity();
 
   const currentIds = useMemo(
     () => new Set(currentAmenities.map((amenity) => amenity.amenityId)),
     [currentAmenities],
   );
 
+  // Amenities already on the room are edited in the list above,
+  // so only amenities not yet assigned are offered here.
   const availableAmenities = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -53,12 +55,9 @@ export function RoomAmenityManager({
     (amenity) => amenity.id === Number(amenityId),
   );
 
-  const overStock = Boolean(
-    selectedAmenity && amount > selectedAmenity.stockQuantity,
-  );
-
   const add = async () => {
-    if (!selectedAmenity || amount < 1 || overStock) return;
+    if (!selectedAmenity || amount < 1 || amount > selectedAmenity.stockQuantity)
+      return;
 
     try {
       await addMutation.mutateAsync({
@@ -74,26 +73,13 @@ export function RoomAmenityManager({
     }
   };
 
-  const remove = async (amenity: RoomAmenityResponse) => {
-    try {
-      await removeMutation.mutateAsync({
-        roomId,
-        amenityId: amenity.amenityId,
-      });
-    } catch {
-      // shown through removeMutation.error below
-    }
-  };
-
   const assignedTotal = currentAmenities.reduce(
     (total, amenity) => total + amenity.price * amenity.amount,
     0,
   );
 
-  const clampAmount = (value: number) => {
-    const max = selectedAmenity?.stockQuantity ?? Infinity;
-    return Math.min(Math.max(1, value), max);
-  };
+  const stockLeftFor = (id: number) =>
+    locationAmenities.find((amenity) => amenity.id === id)?.stockQuantity ?? 0;
 
   return (
     <div className="space-y-6">
@@ -104,9 +90,6 @@ export function RoomAmenityManager({
             <h3 className="text-sm font-semibold text-slate-900">
               Assigned amenities
             </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Quantities are allocated from this location's stock.
-            </p>
           </div>
 
           {currentAmenities.length > 0 && (
@@ -126,58 +109,23 @@ export function RoomAmenityManager({
         ) : (
           <ul className="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
             {currentAmenities.map((amenity) => (
-              <li
+              <AssignedAmenityRow
                 key={amenity.amenityId}
-                className="flex items-center justify-between gap-4 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-slate-800">
-                    {amenity.name}
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {amenity.amount} × ${formatMoney(amenity.price)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-900">
-                    ${formatMoney(amenity.price * amenity.amount)}
-                  </span>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    title="Remove amenity"
-                    aria-label={`Remove ${amenity.name}`}
-                    loading={
-                      removeMutation.isPending &&
-                      removeMutation.variables?.amenityId === amenity.amenityId
-                    }
-                    onClick={() => void remove(amenity)}
-                  >
-                    <Trash2 size={16} />
-                  </Button>
-                </div>
-              </li>
+                roomId={roomId}
+                amenity={amenity}
+                stockLeft={stockLeftFor(amenity.amenityId)}
+              />
             ))}
           </ul>
         )}
-
-        {removeMutation.isError && (
-          <p
-            role="alert"
-            className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700"
-          >
-            {getErrorMessage(removeMutation.error, "Unable to remove amenity.")}
-          </p>
-        )}
       </section>
 
-      {/* Add */}
+      {/* Add new amenity */}
       <section className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
         <h3 className="text-sm font-semibold text-slate-900">Add amenity</h3>
         <p className="mt-1 text-xs text-slate-500">
-          Only active amenities from this room's location are listed.
+          Amenities not yet on this room. To change an existing one, use the
+          amount controls above.
         </p>
 
         <div className="mt-4 space-y-3">
@@ -217,42 +165,14 @@ export function RoomAmenityManager({
               <p className="mb-1.5 text-sm font-medium text-slate-700">
                 Amount
               </p>
-
-              <div className="flex items-center overflow-hidden rounded-lg border border-slate-300 bg-white">
-                <button
-                  type="button"
-                  aria-label="Decrease amount"
-                  disabled={!selectedAmenity || amount <= 1}
-                  onClick={() => setAmount((current) => clampAmount(current - 1))}
-                  className="h-10 w-10 text-lg text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-                >
-                  −
-                </button>
-
-                <input
-                  type="number"
-                  min={1}
-                  max={selectedAmenity?.stockQuantity ?? undefined}
-                  value={amount}
-                  disabled={!selectedAmenity}
-                  onChange={(event) =>
-                    setAmount(Math.max(1, Number(event.target.value) || 1))
-                  }
-                  className="h-10 w-16 border-x border-slate-200 text-center text-sm outline-none disabled:bg-slate-50"
-                />
-
-                <button
-                  type="button"
-                  aria-label="Increase amount"
-                  disabled={
-                    !selectedAmenity || amount >= selectedAmenity.stockQuantity
-                  }
-                  onClick={() => setAmount((current) => clampAmount(current + 1))}
-                  className="h-10 w-10 text-lg text-slate-600 transition hover:bg-slate-50 disabled:opacity-40"
-                >
-                  +
-                </button>
-              </div>
+              <QuantityStepper
+                label="amount"
+                value={amount}
+                min={1}
+                max={selectedAmenity?.stockQuantity}
+                disabled={!selectedAmenity}
+                onChange={setAmount}
+              />
             </div>
           </div>
 
@@ -269,12 +189,6 @@ export function RoomAmenityManager({
             </div>
           )}
 
-          {overStock && selectedAmenity && (
-            <p className="text-xs text-red-600">
-              Maximum available stock is {selectedAmenity.stockQuantity}.
-            </p>
-          )}
-
           {addMutation.isError && (
             <p
               role="alert"
@@ -288,7 +202,7 @@ export function RoomAmenityManager({
             <Button
               type="button"
               leftIcon={<Plus size={16} />}
-              disabled={!selectedAmenity || amount < 1 || overStock}
+              disabled={!selectedAmenity || amount < 1}
               loading={addMutation.isPending}
               onClick={() => void add()}
             >

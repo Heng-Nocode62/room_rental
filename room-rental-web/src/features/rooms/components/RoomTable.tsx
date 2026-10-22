@@ -86,16 +86,24 @@ export function RoomTable({
                     onClick={() => onView(room)}
                     className="group flex items-center gap-3 text-left"
                   >
-                    <span className="flex h-10 min-w-10 items-center justify-center rounded-lg bg-slate-900 px-2 text-xs font-semibold text-white">
-                      {room.roomNumber}
-                    </span>
+                    {room.imageUrl ? (
+                      <img
+                        src={room.imageUrl}
+                        alt={room.name}
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-10 min-w-10 items-center justify-center rounded-lg bg-slate-900 px-2 text-xs font-semibold text-white">
+                        {room.roomNumber}
+                      </span>
+                    )}
 
                     <span>
                       <span className="block font-semibold text-slate-900 group-hover:underline">
                         {room.name}
                       </span>
                       <span className="block text-xs text-slate-500">
-                        Floor {room.floor || "—"}
+                        Room {room.roomNumber} · Floor {room.floor || "—"}
                       </span>
                     </span>
                   </button>
@@ -146,16 +154,24 @@ export function RoomTable({
                 onClick={() => onView(room)}
                 className="flex min-w-0 items-center gap-3 text-left"
               >
-                <span className="flex h-10 min-w-10 items-center justify-center rounded-lg bg-slate-900 px-2 text-xs font-semibold text-white">
-                  {room.roomNumber}
-                </span>
+                {room.imageUrl ? (
+                  <img
+                    src={room.imageUrl}
+                    alt={room.name}
+                    className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 min-w-10 items-center justify-center rounded-lg bg-slate-900 px-2 text-xs font-semibold text-white">
+                    {room.roomNumber}
+                  </span>
+                )}
 
                 <span className="min-w-0">
                   <span className="block truncate font-semibold text-slate-900">
                     {room.name}
                   </span>
                   <span className="block truncate text-xs text-slate-500">
-                    {room.locationName} · {room.roomTypeName}
+                    Room {room.roomNumber} · {room.locationName} · {room.roomTypeName}
                   </span>
                 </span>
               </button>

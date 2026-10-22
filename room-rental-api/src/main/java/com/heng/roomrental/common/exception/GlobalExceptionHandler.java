@@ -30,6 +30,20 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(InvalidCredentialException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredential(
+            InvalidCredentialException ex,
+            HttpServletRequest request
+    ) {
+
+        return build(
+                HttpStatus.UNAUTHORIZED,
+                ex.getCode(),
+                ex.getMessage(),
+                request
+        );
+    }
+
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(
             ConflictException ex,

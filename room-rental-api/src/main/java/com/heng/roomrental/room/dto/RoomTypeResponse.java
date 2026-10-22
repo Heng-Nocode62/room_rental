@@ -6,6 +6,8 @@ public record RoomTypeResponse(
         String code,
         String description,
         Integer capacity,
-        String status
+        String imageUrl,
+        String status,
+        Long locationId
 ) {
 }

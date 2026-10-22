@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 import { useCurrentUser } from "../../auth/hooks/useCurrentUser";
-import { useUpdateUser } from "../../users/hooks/useUpdateUser";
-import { useChangePassword } from "../../users/hooks/useChangePassword";
+import { useUpdateMyProfile } from "../../auth/hooks/useUpdateMyProfile";
+import { useChangeMyPassword } from "../../auth/hooks/useChangeMyPassword";
 
 import {
   Button,
@@ -14,34 +14,31 @@ import {
   SectionTitle,
 } from "../components/UserUI";
 
-/* ─── Page ───────────────────────────────────────────────── */
 export default function UserProfilePage() {
   const { data: user, refetch } = useCurrentUser();
 
-  const update = useUpdateUser();
-  const changePassword = useChangePassword();
+  const update = useUpdateMyProfile();
+  const changePassword = useChangeMyPassword();
 
   const [editOpen, setEditOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [dark, setDark] = useState(
-    () => document.documentElement.classList.contains("dark"),
+  const [dark, setDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
   );
 
   useEffect(() => {
     if (!user) return;
     setFirstName(user.firstName);
     setLastName(user.lastName);
-    setEmail(user.email ?? "");
     setPhone(user.phone ?? "");
   }, [user]);
 
@@ -52,40 +49,83 @@ export default function UserProfilePage() {
   const initials =
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
 
-  /* ── Keep handler logic exactly ─────────────────────────── */
-  const saveProfile = async () => {
-    await update.mutateAsync({
-      id: user.id,
-      request: {
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        email: email.trim() || undefined,
-        phone: phone.trim() || undefined,
-      },
-    });
-    await refetch();
-    setEditOpen(false);
+  // roles is Role[] (objects) — never render it directly
+  const roleLabel = user.roles?.length
+    ? user.roles.map((r) => r.name).join(", ")
+    : "User";
+
+  const statusLabel = user.status
+    ? user.status.charAt(0).toUpperCase() + user.status.slice(1).toLowerCase()
+    : "—";
+
+  /* ── Modal open/close helpers (reset stale state) ───────── */
+  const openEdit = () => {
+    setFirstName(user.firstName);
+    setLastName(user.lastName);
+    setPhone(user.phone ?? "");
+    update.reset();
+    setEditOpen(true);
   };
 
-  const savePassword = async () => {
-    if (!currentPassword || !newPassword || newPassword !== confirmPassword) {
-      return;
-    }
-    await changePassword.mutateAsync({
-      id: user.id,
-      request: { currentPassword, newPassword },
-    });
+  const closeEdit = () => setEditOpen(false);
+
+  const openPassword = () => {
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    changePassword.reset();
+    setPasswordOpen(true);
+  };
+
+  const closePassword = () => {
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setPasswordOpen(false);
   };
 
+  /* ── Handlers ───────────────────────────────────────────── */
+  const canSaveProfile =
+    firstName.trim() !== "" && lastName.trim() !== "" && phone.trim() !== "";
+
+  const saveProfile = async () => {
+    if (!canSaveProfile) return;
+    try {
+      // PUT /auth/me/profile — matches UpdateMyProfileRequest (no email, no id)
+      await update.mutateAsync({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        phone: phone.trim(),
+      });
+      await refetch();
+      setEditOpen(false);
+    } catch {
+      // error state is shown via update.isError
+    }
+  };
+
+  const canSavePassword =
+    !!currentPassword && !!newPassword && newPassword === confirmPassword;
+
+  const savePassword = async () => {
+    if (!canSavePassword) return;
+    try {
+      // PUT /auth/change-password — matches ChangeMyPasswordRequest (no id)
+      await changePassword.mutateAsync({ currentPassword, newPassword });
+      closePassword();
+    } catch {
+    }
+  };
+
   const toggleTheme = () => {
     const next = !dark;
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("user-theme", next ? "dark" : "light");
+    try {
+      localStorage.setItem("user-theme", next ? "dark" : "light");
+    } catch {
+      /* storage unavailable — ignore */
+    }
   };
 
   return (
@@ -96,39 +136,35 @@ export default function UserProfilePage() {
         description="Manage your personal information, security and preferences."
       />
 
-      {/* ── Profile Hero Card ──────────────────────────────── */}
       <Card className="overflow-hidden">
-        {/* Gradient banner */}
-        <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-6 pb-10 pt-8">
-          {/* Decorative circles */}
+        <div className="relative bg-gradient-to-br from-blue-700 via-blue-600 to-blue-500 px-6 pb-8 pt-8">
           <div className="pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/5" />
           <div className="pointer-events-none absolute -bottom-6 -right-6 h-32 w-32 rounded-full bg-white/5" />
 
-          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex items-center gap-4">
-              {/* Avatar */}
-              <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/20 text-2xl font-black text-white shadow-lg backdrop-blur-sm ring-4 ring-white/10">
-                {initials}
-              </div>
+          <div className="relative flex items-center gap-4">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-2xl font-black text-white shadow-lg ring-4 ring-white/10 backdrop-blur-sm">
+              {initials || "?"}
+            </div>
 
-              <div>
-                <p className="text-2xl font-bold tracking-tight text-white">
-                  {user.firstName} {user.lastName}
+            <div className="min-w-0">
+              <p className="truncate text-2xl font-bold tracking-tight text-white">
+                {user.firstName} {user.lastName}
+              </p>
+              {user.username && (
+                <p className="mt-1 truncate text-sm text-blue-100">
+                  @{user.username}
                 </p>
-                <p className="mt-1 text-sm text-blue-100">@{user.username}</p>
+              )}
 
-                {/* Role badge */}
-                <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  {user.role ?? "User"}
-                </span>
-              </div>
+              <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+                <span className="truncate">{roleLabel}</span>
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Info grid — pulled up to overlap the banner bottom */}
-        <div className="-mt-0 grid gap-3 p-6 sm:grid-cols-2">
+        <div className="grid gap-3 p-6 sm:grid-cols-2">
           <InfoTile icon="mail" label="Email" value={user.email || "—"} />
           <InfoTile icon="phone" label="Phone" value={user.phone || "—"} />
           <InfoTile
@@ -136,18 +172,15 @@ export default function UserProfilePage() {
             label="Username"
             value={user.username || "—"}
           />
-          <InfoTile icon="shield" label="Status" value="Active" />
+          <InfoTile icon="shield" label="Status" value={statusLabel} />
         </div>
 
-        {/* Edit footer */}
         <div className="flex justify-end border-t border-slate-200 px-6 py-4 dark:border-slate-800">
-          <Button onClick={() => setEditOpen(true)}>Edit profile</Button>
+          <Button onClick={openEdit}>Edit profile</Button>
         </div>
       </Card>
 
-      {/* ── Cards grid: Security + Preferences ────────────── */}
       <div className="grid gap-6 sm:grid-cols-2">
-        {/* Security card */}
         <Card className="flex flex-col gap-5 p-6">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -164,16 +197,12 @@ export default function UserProfilePage() {
           </div>
 
           <div className="mt-auto">
-            <Button
-              variant="secondary"
-              onClick={() => setPasswordOpen(true)}
-            >
+            <Button variant="secondary" onClick={openPassword}>
               Change password
             </Button>
           </div>
         </Card>
 
-        {/* Preferences card */}
         <Card className="flex flex-col gap-5 p-6">
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
@@ -189,7 +218,6 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Dark mode toggle row */}
           <div className="flex items-center justify-between rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
             <div className="flex items-center gap-3">
               <Icon
@@ -207,13 +235,14 @@ export default function UserProfilePage() {
               </div>
             </div>
 
-            {/* Pill toggle */}
             <button
               type="button"
+              role="switch"
+              aria-checked={dark}
+              aria-label="Toggle dark mode"
               onClick={toggleTheme}
-              aria-pressed={dark}
               className={[
-                "relative h-7 w-12 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                "relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
                 dark ? "bg-blue-600" : "bg-slate-300 dark:bg-slate-700",
               ].join(" ")}
             >
@@ -228,10 +257,9 @@ export default function UserProfilePage() {
         </Card>
       </div>
 
-      {/* ── Edit Profile Modal ─────────────────────────────── */}
       <Modal
         open={editOpen}
-        onClose={() => setEditOpen(false)}
+        onClose={closeEdit}
         title="Edit profile"
         description="Update your personal information below."
       >
@@ -249,18 +277,23 @@ export default function UserProfilePage() {
             />
           </div>
 
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+          <div>
+            <Input
+              label="Phone *"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            {phone.trim() === "" && (
+              <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400">
+                Phone number is required.
+              </p>
+            )}
+          </div>
 
-          <Input
-            label="Phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Your email ({user.email || "—"}) can't be changed here.
+          </p>
 
           {update.isError && (
             <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-400">
@@ -269,11 +302,12 @@ export default function UserProfilePage() {
           )}
 
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end sm:gap-3">
-            <Button variant="secondary" onClick={() => setEditOpen(false)}>
+            <Button variant="secondary" onClick={closeEdit}>
               Cancel
             </Button>
             <Button
               loading={update.isPending}
+              disabled={!canSaveProfile}
               onClick={() => void saveProfile()}
             >
               Save changes
@@ -281,11 +315,9 @@ export default function UserProfilePage() {
           </div>
         </div>
       </Modal>
-
-      {/* ── Change Password Modal ──────────────────────────── */}
       <Modal
         open={passwordOpen}
-        onClose={() => setPasswordOpen(false)}
+        onClose={closePassword}
         title="Change password"
         description="Enter your current password and choose a new one."
       >
@@ -293,6 +325,7 @@ export default function UserProfilePage() {
           <Input
             label="Current password"
             type="password"
+            autoComplete="current-password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
           />
@@ -300,6 +333,7 @@ export default function UserProfilePage() {
           <Input
             label="New password"
             type="password"
+            autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
           />
@@ -307,11 +341,11 @@ export default function UserProfilePage() {
           <Input
             label="Confirm new password"
             type="password"
+            autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
           />
 
-          {/* Inline validation hint */}
           {confirmPassword && newPassword !== confirmPassword && (
             <div className="flex items-center gap-2 rounded-xl bg-rose-50 px-4 py-3 dark:bg-rose-500/10">
               <svg
@@ -325,6 +359,7 @@ export default function UserProfilePage() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 className="shrink-0 text-rose-500"
+                aria-hidden="true"
               >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
@@ -338,21 +373,18 @@ export default function UserProfilePage() {
 
           {changePassword.isError && (
             <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:bg-rose-500/10 dark:text-rose-400">
-              Unable to change your password. Please check your current password.
+              Unable to change your password. Please check your current
+              password.
             </p>
           )}
 
           <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end sm:gap-3">
-            <Button variant="secondary" onClick={() => setPasswordOpen(false)}>
+            <Button variant="secondary" onClick={closePassword}>
               Cancel
             </Button>
             <Button
               loading={changePassword.isPending}
-              disabled={
-                !currentPassword ||
-                !newPassword ||
-                newPassword !== confirmPassword
-              }
+              disabled={!canSavePassword}
               onClick={() => void savePassword()}
             >
               Change password
@@ -364,7 +396,6 @@ export default function UserProfilePage() {
   );
 }
 
-/* ─── Info tile sub-component ────────────────────────────── */
 function InfoTile({
   icon,
   label,
@@ -375,14 +406,14 @@ function InfoTile({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700">
+    <div className="min-w-0 rounded-2xl border border-slate-200 p-4 transition hover:border-slate-300 dark:border-slate-800 dark:hover:border-slate-700">
       <div className="flex items-center gap-2 text-slate-400">
         <Icon name={icon} size={14} />
         <span className="text-xs font-semibold uppercase tracking-widest">
           {label}
         </span>
       </div>
-      <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+      <p className="mt-2 truncate text-sm font-semibold text-slate-800 dark:text-slate-200">
         {value}
       </p>
     </div>

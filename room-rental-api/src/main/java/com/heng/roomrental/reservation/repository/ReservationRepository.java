@@ -89,8 +89,6 @@ public interface ReservationRepository
         select r
         from Reservation r
         where r.reservedBy.id = :userId
-        and r.status.code != 'PENDING'
-        and r.status.code != 'CANCELLED'
 """)
     List<Reservation> findByReservedBy_Id(Long userId);
 }

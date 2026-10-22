@@ -45,19 +45,13 @@ public class RoomAmenityServiceImpl implements RoomAmenityService {
         Room room = roomService.getEntityById(roomId);
         Location location = room.getLocation();
         locationSecurity.validateOwner(location.getId());
+
         Amenity amenity = amenityRepository.findById(request.amenityId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Amenity not found: " + request.amenityId()
                 ));
 
         validateLocation(room, amenity);
-
-        if (room.getAmenities().stream().anyMatch(ra ->
-                ra.getAmenity().getId().equals(amenity.getId()))) {
-            throw new ConflictException(
-                    "Amenity is already assigned to this room"
-            );
-        }
 
         if (amenity.getStockQuantity() < request.amount()) {
             throw new ConflictException(
@@ -66,6 +60,13 @@ public class RoomAmenityServiceImpl implements RoomAmenityService {
         }
 
         amenity.setStockQuantity(amenity.getStockQuantity() - request.amount());
+
+        RoomAmenity existing = findAssigned(room, amenity.getId());
+        if (existing != null) {
+            // Already on the room: add more instead of rejecting.
+            existing.setAmount(existing.getAmount() + request.amount());
+            return;
+        }
 
         RoomAmenity roomAmenity = new RoomAmenity();
         roomAmenity.setRoom(room);
@@ -76,21 +77,44 @@ public class RoomAmenityServiceImpl implements RoomAmenityService {
 
     @Override
     @Transactional
-    public void removeAmenity(Long roomId, Long amenityId) {
+    public void removeAmenity(Long roomId, Long amenityId, Integer amount) {
         Room room = roomService.getEntityById(roomId);
         locationSecurity.validateOwner(room.getLocation().getId());
-        RoomAmenity roomAmenity = room.getAmenities().stream()
+
+        RoomAmenity roomAmenity = findAssigned(room, amenityId);
+        if (roomAmenity == null) {
+            throw new ResourceNotFoundException(
+                    "Amenity is not assigned to this room: " + amenityId
+            );
+        }
+
+        int current = roomAmenity.getAmount();
+        int toRemove = (amount == null) ? current : amount; // null = remove all
+
+        if (toRemove < 1) {
+            throw new ConflictException("Amount to remove must be at least 1");
+        }
+        if (toRemove > current) {
+            throw new ConflictException(
+                    "Cannot remove " + toRemove + "; only " + current + " assigned"
+            );
+        }
+
+        Amenity amenity = roomAmenity.getAmenity();
+        amenity.setStockQuantity(amenity.getStockQuantity() + toRemove);
+
+        if (toRemove == current) {
+            room.getAmenities().remove(roomAmenity);
+        } else {
+            roomAmenity.setAmount(current - toRemove);
+        }
+    }
+
+    private RoomAmenity findAssigned(Room room, Long amenityId) {
+        return room.getAmenities().stream()
                 .filter(ra -> ra.getAmenity().getId().equals(amenityId))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Amenity is not assigned to this room: " + amenityId
-                ));
-
-        roomAmenity.getAmenity().setStockQuantity(
-                roomAmenity.getAmenity().getStockQuantity() + roomAmenity.getAmount()
-        );
-
-        room.getAmenities().remove(roomAmenity);
+                .orElse(null);
     }
 
 

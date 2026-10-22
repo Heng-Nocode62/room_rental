@@ -1,5 +1,6 @@
 import { useForm } from "react-hook-form";
 import { Button, Input } from "../../../../components/ui/index.ts";
+import { LanguageFlag } from "./LanguageFlag.tsx";
 
 export interface LanguageFormValues {
   code: string;
@@ -20,8 +21,18 @@ interface Props {
   onSubmit: (values: LanguageFormValues) => Promise<void>;
 }
 
-export function LanguageForm({ mode, initialValues, loading = false, onSubmit }: Props) {
-  const { register, handleSubmit, formState: { errors } } = useForm<LanguageFormValues>({
+export function LanguageForm({
+  mode,
+  initialValues,
+  loading = false,
+  onSubmit,
+}: Props) {
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<LanguageFormValues>({
     defaultValues: {
       code: initialValues?.code ?? "",
       title: initialValues?.title ?? "",
@@ -30,19 +41,65 @@ export function LanguageForm({ mode, initialValues, loading = false, onSubmit }:
     },
   });
 
-  return <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-    <Input label="Language code" requiredMark placeholder="en or en-US"
-      hint="2–20 letters, optionally followed by a region (e.g. en, km, en-US)"
-      error={errors.code?.message}
-      {...register("code", { required: "Language code is required", maxLength: { value: 20, message: "Maximum 20 characters" },
-        pattern: { value: /^[A-Za-z]{2,20}([_-][A-Za-z0-9]{2,10})?$/, message: "Invalid language code" } })} />
-    <Input label="Title" requiredMark placeholder="English" error={errors.title?.message}
-      {...register("title", { required: "Title is required", maxLength: { value: 100, message: "Maximum 100 characters" } })} />
-    <Input label="Flag" placeholder="🇬🇧 or a flag URL" error={errors.flag?.message}
-      {...register("flag", { maxLength: { value: 2048, message: "Maximum 2048 characters" } })} />
-    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-      <input type="checkbox" className="h-4 w-4 rounded border-slate-300" {...register("active")} /> Active
-    </label>
-    <div className="flex justify-end"><Button type="submit" loading={loading}>{mode === "create" ? "Create Language" : "Save Changes"}</Button></div>
-  </form>;
+  const flag = watch("flag");
+  const title = watch("title");
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <Input
+        label="Language code"
+        requiredMark
+        placeholder="en or en-US"
+        hint="2–20 letters, optionally followed by a region (e.g. en, km, en-US)"
+        error={errors.code?.message}
+        {...register("code", {
+          required: "Language code is required",
+          maxLength: { value: 20, message: "Maximum 20 characters" },
+          pattern: {
+            value: /^[A-Za-z]{2,20}([_-][A-Za-z0-9]{2,10})?$/,
+            message: "Invalid language code",
+          },
+        })}
+      />
+      <Input
+        label="Title"
+        requiredMark
+        placeholder="English"
+        error={errors.title?.message}
+        {...register("title", {
+          required: "Title is required",
+          maxLength: { value: 100, message: "Maximum 100 characters" },
+        })}
+      />
+
+      <div className="space-y-2">
+        <Input
+          label="Flag"
+          placeholder="🇬🇧 or a flag image URL"
+          error={errors.flag?.message}
+          {...register("flag", {
+            maxLength: { value: 2048, message: "Maximum 2048 characters" },
+          })}
+        />
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <span>Preview</span>
+          <LanguageFlag flag={flag} title={title} />
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-slate-300"
+          {...register("active")}
+        />{" "}
+        Active
+      </label>
+      <div className="flex justify-end">
+        <Button type="submit" loading={loading}>
+          {mode === "create" ? "Create Language" : "Save Changes"}
+        </Button>
+      </div>
+    </form>
+  );
 }

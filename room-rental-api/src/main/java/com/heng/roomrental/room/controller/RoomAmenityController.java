@@ -39,8 +39,9 @@ public class RoomAmenityController {
     @PreAuthorize("hasAuthority('ROOM_AMENITY_MANAGE')")
     public void removeAmenity(
             @PathVariable Long roomId,
-            @PathVariable Long amenityId
+            @PathVariable Long amenityId,
+            @RequestParam(required = false) Integer amount
     ) {
-        roomAmenityService.removeAmenity(roomId, amenityId);
+        roomAmenityService.removeAmenity(roomId, amenityId, amount);
     }
 }

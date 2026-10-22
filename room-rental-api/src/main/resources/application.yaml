@@ -2,23 +2,26 @@ spring:
   application:
     name: room-rental-api
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/room_rental}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:123456}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     open-in-view: false
 
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   flyway:
-    enabled: false
-    locations: classpath:db/migration
+    enabled: true
+    locations:
+      - classpath:db/migration
+      - classpath:db/seeder
   data:
     web:
       pageable:
@@ -52,16 +55,24 @@ app:
 
 # application.yml
 google:
-  client-id: 876236890554-o32pu3u6drtj7fo90p8ogleh2tctmbch.apps.googleusercontent.com
+  client-ids: ${GOOGLE_CLIENT_IDS:876236890554-o32pu3u6drtj7fo90p8ogleh2tctmbch.apps.googleusercontent.com}
+#google:
+#  client-id: 876236890554-o32pu3u6drtj7fo90p8ogleh2tctmbch.apps.googleusercontent.com
+supabase:
+  url: ${SUPABASE_URL}
+  key: ${SUPABASE_KEY}
+  bucket: ${SUPABASE_BUCKET}
 
 bakong:
-  base-url: https://api-bakong.nbc.gov.kh/
-  token: ${BAKONG_TOKEN}
-  account-id: heng_vath@bkrt
-  merchant-id: heng_vath@bkrt
-  merchant-name: Heng Vath
-  merchant-city: Phnom Penh
-  store-label: CinemaHub Tickets
-  terminal-label: POS-01
-  qr-expiry-minutes: 10
-  poll-inverval-seconds: 10
+  base-url: ${BAKONG_BASE_URL:https://api-bakong.nbc.gov.kh}
+  token: ${BAKONG_TOKEN:}
+  merchant-id: ${BAKONG_MERCHANT_ID:heng_vath@bkrt}
+  acquiring-bank: ${BAKONG_ACQUIRING_BANK:BAKONG}
+  merchant-name: ${BAKONG_MERCHANT_NAME:ROOM RENTAL}
+  merchant-city: ${BAKONG_MERCHANT_CITY:PHNOM PENH}
+  store-label: ${BAKONG_STORE_LABEL:ROOM RENTAL}
+  terminal-label: ${BAKONG_TERMINAL_LABEL:ONLINE}
+  qr-expiry-minutes: ${BAKONG_QR_EXPIRY_MINUTES:10}
+  app-name: ${BAKONG_APP_NAME:ROOM RENTAL}
+  app-icon-url: ${BAKONG_APP_ICON_URL:}
+  app-deep-link-callback: ${BAKONG_APP_DEEPLINK_CALLBACK:http//localhost:5173}

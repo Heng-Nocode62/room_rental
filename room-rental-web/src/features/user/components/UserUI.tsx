@@ -42,6 +42,7 @@ type IconName =
   | "info"
   | "shield"
   | "eye"
+  | "door-open"
   | "sparkles";
 
 export function Icon({

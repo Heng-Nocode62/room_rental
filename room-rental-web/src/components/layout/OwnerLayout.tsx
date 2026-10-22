@@ -497,9 +497,6 @@ export default function OwnerLayout() {
             </div>
 
             <ThemeToggle />
-
-            <LanguageSwitcher />
-
             <Button
               variant="ghost"
               onClick={handleLogout}

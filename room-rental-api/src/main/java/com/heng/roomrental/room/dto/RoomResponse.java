@@ -14,6 +14,7 @@ public record RoomResponse(
         String name,
         String floor,
         String description,
+        String imageUrl,
         Integer capacity,
         String status,
         List<RoomPriceResponse> prices,

@@ -9,6 +9,13 @@ import com.heng.roomrental.security.authentication.security.RefreshTokenCookie;
 import com.heng.roomrental.security.authentication.service.AuthenticationService;
 import com.heng.roomrental.security.jwt.JwtService;
 import com.heng.roomrental.security.refresh.RefreshTokenService;
+import com.heng.roomrental.user.dto.ChangePasswordRequest;
+import com.heng.roomrental.security.authentication.dto.ForgotPasswordRequest;
+import com.heng.roomrental.security.authentication.dto.ResetPasswordRequest;
+import com.heng.roomrental.security.authentication.dto.UpdateProfileRequest;
+import com.heng.roomrental.security.authentication.dto.MessageResponse;
+import com.heng.roomrental.user.dto.UpdateUserRequest;
+import com.heng.roomrental.user.dto.UserResponse;
 import com.heng.roomrental.user.entity.User;
 import com.heng.roomrental.user.security.UserPrincipal;
 import jakarta.validation.Valid;
@@ -73,8 +80,6 @@ public class AuthenticationController {
 
         AuthenticationResult result =
                 authenticationService.refresh(refreshToken);
-
-        // Re-issue the cookie so the browser keeps the refresh token available.
         ResponseCookie refreshCookie =
                 RefreshTokenCookie.create(result.refreshToken());
 
@@ -111,6 +116,7 @@ public class AuthenticationController {
     public ResponseEntity<AuthResponse> google(
             @RequestBody GoogleAuthRequest request
     ) throws GeneralSecurityException, IOException {
+        log.info("api hit");
         GoogleIdToken idToken = googleVerifier.verify(request.credential());
         if (idToken == null) {
             throw new ResponseStatusException(
@@ -156,6 +162,44 @@ public class AuthenticationController {
     @GetMapping("/me")
     public AuthMeResponse me() {
         return authenticationService.authMe();
+    }
+
+    @PutMapping("/change-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void changePassword(
+            @Valid
+            @RequestBody
+            ChangePasswordRequest request
+    ) {
+
+        authenticationService.changePassword(request
+        );
+    }
+
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        authenticationService.requestPasswordReset(request);
+        return ResponseEntity.ok(new MessageResponse(
+                "If an eligible account exists for that email, a password reset code has been sent."
+        ));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authenticationService.resetPassword(request);
+        return ResponseEntity.ok(new MessageResponse("Password has been reset successfully."));
+    }
+
+    @PutMapping("/me/profile")
+    public ResponseEntity<UserResponse> updateMyProfile(
+            @Valid @RequestBody UpdateProfileRequest request
+    ) {
+        return ResponseEntity.ok(authenticationService.updateMyProfile(request));
     }
 
     @GetMapping("/me/reservations")
